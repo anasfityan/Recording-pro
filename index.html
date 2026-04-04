@@ -899,11 +899,14 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING v7 — no beeps ══════
-   continuous=true = mic stays open, no restart = no system beep
-   isAborting flag = tells onend we stopped deliberately (no restart)
+/* ══════ RECORDING v9 ══════
+   The Android system beep happens because Android forces the mic closed
+   after silence, even with continuous=true. We cannot prevent this.
+   Solution: play a masked noise burst at the moment of restart,
+   which covers the system beep sound completely.
 */
 let isAborting=false;
+let recAudioCtx=null;
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -914,6 +917,35 @@ function setRecUI(on){
     :'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10c0 4 3 7 7 7s7-3 7-7"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>';
   const lbl=document.getElementById('rec-lbl');
   if(lbl){lbl.textContent=on?'جاري...':'تسجيل';lbl.classList.toggle('on',on);}
+}
+
+function getRecAudioCtx(){
+  if(!recAudioCtx){
+    try{recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  }
+  if(recAudioCtx&&recAudioCtx.state==='suspended')recAudioCtx.resume();
+  return recAudioCtx;
+}
+
+/* Play a very short, very quiet white-noise burst.
+   This masks the Android system mic-open/close click sound.
+   Duration: 80ms, gain: 0.04 (barely audible but covers the click) */
+function maskBeep(){
+  try{
+    const ctx=getRecAudioCtx();
+    if(!ctx)return;
+    const bufSize=ctx.sampleRate*0.08; // 80ms
+    const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
+    const data=buf.getChannelData(0);
+    for(let i=0;i<bufSize;i++)data[i]=(Math.random()*2-1)*0.04;
+    const src=ctx.createBufferSource();
+    src.buffer=buf;
+    const g=ctx.createGain();
+    g.gain.setValueAtTime(0.04,ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.08);
+    src.connect(g);g.connect(ctx.destination);
+    src.start();
+  }catch(e){}
 }
 
 function toggleRecording(){
@@ -927,34 +959,8 @@ function startRec(){
   accFinal='';shouldRec=true;isAborting=false;isRec=true;
   stats.sess++;saveStats();clearResult();
   setRecUI(true);
-  startRecAudio(); // keep OS audio session alive → prevents Android beep
+  getRecAudioCtx(); // activate audio context on user gesture
   launchRec();
-}
-
-/* AudioContext trick: keeps audio session alive on Android,
-   which prevents the OS from closing the mic and making beep sounds.
-   We play near-silent audio in a loop while recording. */
-let recAudioCtx=null,recGainNode=null,recOscNode=null;
-
-function startRecAudio(){
-  if(recAudioCtx)return;
-  try{
-    recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    recGainNode=recAudioCtx.createGain();
-    recGainNode.gain.value=0.00001; // virtually silent
-    recGainNode.connect(recAudioCtx.destination);
-    // Continuous sine at 200Hz — keeps audio session open
-    recOscNode=recAudioCtx.createOscillator();
-    recOscNode.frequency.value=200;
-    recOscNode.connect(recGainNode);
-    recOscNode.start();
-  }catch(e){}
-}
-
-function stopRecAudio(){
-  try{if(recOscNode)recOscNode.stop();}catch(e){}
-  try{if(recAudioCtx)recAudioCtx.close();}catch(e){}
-  recAudioCtx=null;recGainNode=null;recOscNode=null;
 }
 
 function launchRec(){
@@ -962,7 +968,6 @@ function launchRec(){
   let r;
   try{r=new SR();}catch(e){setRecUI(false);isRec=false;return;}
   recObj=r;
-
   r.lang=lang==='tr'?'tr-TR':'en-US';
   r.continuous=true;
   r.interimResults=true;
@@ -988,24 +993,24 @@ function launchRec(){
     if(isAborting||!shouldRec){
       isRec=false;isAborting=false;
       setRecUI(false);
-      stopRecAudio();
       return;
     }
-    // Android killed mic after silence → restart quietly
-    if(shouldRec&&isRec) setTimeout(launchRec,350);
+    // Android closed mic after silence — mask the system click then restart
+    maskBeep();
+    setTimeout(launchRec,90);
   };
 
   r.onerror=ev=>{
     if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
       shouldRec=false;isRec=false;isAborting=false;
       setRecUI(false);
-      stopRecAudio();
       document.getElementById('no-sup').style.display='block';
     }
+    // no-speech / aborted: onend handles restart
   };
 
   try{r.start();}
-  catch(e){if(shouldRec&&isRec)setTimeout(launchRec,500);}
+  catch(e){if(shouldRec&&isRec){maskBeep();setTimeout(launchRec,150);}}
 }
 
 function stopRec(){
@@ -1013,9 +1018,9 @@ function stopRec(){
   shouldRec=false;isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
   setRecUI(false);
-  stopRecAudio();
 }
 
+function stopRecAudio(){}  // kept for compatibility
 /* ══════ ANALYZE ══════ */
 function analyze(spoken){
   const L=list();const target=(L[idx]||{}).text||'';if(!target)return;
