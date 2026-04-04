@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0f" id="theme-meta">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SpeakPro">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.svg">
+<title>SpeakPro</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&family=Playfair+Display:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--sur:#13131f;--sur2:#1c1c2e;--sur3:#252538;
+  --brd:rgba(255,255,255,0.06);--brd2:rgba(255,255,255,0.13);
+  --tx:#eeeef5;--tx2:#8888aa;--tx3:#44445a;
+  --ac:#7c6dfa;--ac2:#c084fc;--ac3:#38bdf8;
+  --gr:#4ade80;--rd:#f87171;--am:#fbbf24;
+  --gr-bg:rgba(74,222,128,0.08);--rd-bg:rgba(248,113,113,0.08);
+  --sh:0 8px 32px rgba(0,0,0,0.45);
+  --r:16px;--rs:10px;
+  --nav-h:58px;
+  --sab:env(safe-area-inset-bottom,0px);
+}
+[data-theme="light"]{
+  --bg:#f0f0f6;--sur:#fff;--sur2:#e6e6f0;--sur3:#d8d8ec;
+  --brd:rgba(0,0,0,0.06);--brd2:rgba(0,0,0,0.13);
+  --tx:#111122;--tx2:#55557a;--tx3:#aaaacc;
+  --sh:0 8px 32px rgba(0,0,0,0.08);
+}
+html,body{height:100%;overflow:hidden;-webkit-text-size-adjust:100%}
+body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;align-items:center;transition:background .3s,color .3s;-webkit-tap-highlight-color:transparent}
+body::before{content:'';position:fixed;top:-30%;left:-20%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(124,109,250,.06) 0%,transparent 70%);pointer-events:none;z-index:0}
+
+/* SCROLL */
+#sa{width:100%;flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(90px + var(--sab))}
+
+/* WRAP */
+.w{width:100%;max-width:680px;margin:0 auto;padding:1rem 1rem 0;position:relative;z-index:1}
+@media(min-width:768px){.w{max-width:860px;padding:1.5rem 2rem 0}}
+@media(min-width:1024px){.w{max-width:1000px}}
+
+/* HEADER */
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem}
+.logo-row{display:flex;align-items:center;gap:9px}
+.logo-ic{width:38px;height:38px;background:linear-gradient(135deg,var(--ac),var(--ac2));border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 14px rgba(124,109,250,.35);flex-shrink:0}
+.logo-tx{font-family:'Playfair Display',serif;font-size:20px;background:linear-gradient(135deg,var(--ac),var(--ac2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hdr-btns{display:flex;gap:7px;align-items:center}
+.ic-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--brd2);background:var(--sur);color:var(--tx2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;touch-action:manipulation;position:relative}
+.ic-btn:active{background:var(--sur2);transform:scale(.93)}
+/* ADD TEXT BUTTON */
+.add-fab{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border-color:transparent;font-size:20px;box-shadow:0 2px 12px rgba(124,109,250,.4)}
+.add-fab:active{opacity:.85}
+
+/* iOS SAFARI NOTICE */
+.ios-notice{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:var(--rs);padding:.7rem 1rem;margin-bottom:.8rem;font-size:12px;color:var(--am);display:none;align-items:center;gap:8px}
+.ios-notice.show{display:flex}
+
+/* INSTALL */
+.inst-ban{background:linear-gradient(135deg,rgba(124,109,250,.1),rgba(192,132,252,.1));border:1px solid rgba(124,109,250,.22);border-radius:var(--r);padding:.8rem 1rem;margin-bottom:.8rem;display:none;align-items:center;gap:10px}
+.inst-ban.show{display:flex}
+.inst-txt{flex:1;font-size:12px;color:var(--tx2)}
+.inst-btn{padding:6px 13px;border-radius:20px;border:none;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation}
+
+/* LANG TABS — liquid style */
+.lang-tabs{display:flex;background:var(--sur);border:1px solid var(--brd);border-radius:50px;padding:4px;margin-bottom:.9rem;gap:3px;position:relative}
+.lang-btn{flex:1;padding:8px 6px;border:none;border-radius:50px;background:transparent;color:var(--tx2);font-family:'Tajawal',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:5px;touch-action:manipulation;position:relative;z-index:1}
+.lang-btn.active{color:var(--tx)}
+.lang-slider{position:absolute;top:4px;bottom:4px;border-radius:50px;background:linear-gradient(135deg,rgba(124,109,250,.25),rgba(192,132,252,.25));border:1px solid rgba(124,109,250,.3);transition:left .28s cubic-bezier(.34,1.56,.64,1),width .28s cubic-bezier(.34,1.56,.64,1);pointer-events:none}
+
+/* MODE TABS */
+.mode-tabs{display:flex;background:var(--sur);border:1px solid var(--brd);border-radius:50px;padding:4px;margin-bottom:.9rem;gap:3px;position:relative}
+.mode-btn{flex:1;padding:7px 4px;border:none;border-radius:50px;background:transparent;color:var(--tx2);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:color .2s;display:flex;align-items:center;justify-content:center;gap:3px;touch-action:manipulation;position:relative;z-index:1}
+.mode-btn.active{color:var(--tx)}
+.mode-slider{position:absolute;top:4px;bottom:4px;border-radius:50px;background:linear-gradient(135deg,rgba(124,109,250,.2),rgba(192,132,252,.2));border:1px solid rgba(124,109,250,.25);transition:left .25s cubic-bezier(.34,1.56,.64,1),width .25s;pointer-events:none}
+
+/* PHRASE CARD */
+.ph-card{background:var(--sur);border:1px solid var(--brd);border-radius:var(--r);padding:1.2rem;margin-bottom:.8rem;position:relative;overflow:hidden;transition:border-color .3s}
+.ph-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--ac),var(--ac2));opacity:.65}
+.ph-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ph-num{font-size:10px;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase}
+.rep-badge{font-size:10px;color:var(--ac2);background:rgba(192,132,252,.1);border:1px solid rgba(192,132,252,.18);border-radius:20px;padding:2px 7px;display:flex;align-items:center;gap:3px}
+.ph-main{font-family:'Playfair Display',serif;font-size:21px;color:var(--tx);line-height:1.5;margin-bottom:6px;direction:ltr;text-align:left;transition:filter .3s;min-height:32px}
+.ph-main.blurred{filter:blur(8px);user-select:none}
+.ph-phon{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ac);direction:ltr;text-align:left;margin-bottom:8px;opacity:.7;line-height:1.5}
+.ph-tr{font-size:12px;color:var(--tx2);padding-top:8px;border-top:1px solid var(--brd);line-height:1.6}
+.card-actions{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
+.c-btn{padding:5px 10px;border-radius:20px;border:1px solid var(--brd2);background:var(--sur2);color:var(--tx2);font-family:'Tajawal',sans-serif;font-size:11px;cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:3px;touch-action:manipulation}
+.c-btn:active{color:var(--tx);border-color:var(--ac)}
+.c-btn.on{color:var(--ac2);border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.08)}
+
+/* SPEED */
+.speed-row{display:flex;align-items:center;gap:6px;margin-top:9px}
+.sp-lbl{font-size:11px;color:var(--tx3)}
+.sp-btns{display:flex;gap:3px}
+.sp-btn{padding:3px 9px;border-radius:20px;border:1px solid var(--brd2);background:transparent;color:var(--tx3);font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .18s;touch-action:manipulation}
+.sp-btn.on{background:rgba(56,189,248,.12);color:var(--ac3);border-color:rgba(56,189,248,.35)}
+
+/* FREE MODE CONTROLS */
+.free-controls{background:var(--sur);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;margin-bottom:.8rem;display:none}
+.free-controls.show{display:block}
+.free-sec-title{font-size:11px;color:var(--tx3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.repeat-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.rep-label{font-size:12px;color:var(--tx2)}
+.rep-select{padding:5px 10px;border-radius:20px;border:1px solid var(--brd2);background:var(--sur2);color:var(--tx);font-family:'Tajawal',sans-serif;font-size:12px;cursor:pointer;touch-action:manipulation;outline:none}
+.sel-text-area{width:100%;padding:8px 10px;background:var(--sur2);border:1px solid var(--brd2);border-radius:var(--rs);color:var(--tx);font-size:13px;font-family:'Tajawal',sans-serif;direction:ltr;text-align:left;resize:vertical;min-height:60px;outline:none;transition:border-color .2s}
+.sel-text-area:focus{border-color:var(--ac)}
+.free-play-btn{margin-top:8px;width:100%;padding:9px;border-radius:var(--rs);border:none;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;transition:all .18s}
+.free-play-btn:active{opacity:.85}
+.free-stop-btn{margin-top:6px;width:100%;padding:7px;border-radius:var(--rs);border:1px solid var(--brd2);background:transparent;color:var(--tx2);font-family:'Tajawal',sans-serif;font-size:12px;cursor:pointer;touch-action:manipulation}
+.free-prog{font-size:11px;color:var(--tx3);margin-top:6px;text-align:center;min-height:16px}
+
+/* REVEAL WORDS */
+.reveal-words{display:flex;flex-wrap:wrap;gap:6px;direction:ltr;margin-bottom:8px}
+.rw{font-family:'Playfair Display',serif;font-size:20px;padding:3px 5px;border-radius:6px;transition:all .22s;cursor:pointer;line-height:1.4;touch-action:manipulation}
+.rw.shown{color:var(--tx)}
+.rw.hw{background:var(--sur3);color:transparent;min-width:32px}
+.rw.cur{background:rgba(124,109,250,.14);border:1px solid rgba(124,109,250,.3);color:transparent;min-width:32px}
+
+/* WORD TRANSLATION POPUP */
+.word-pop{position:fixed;bottom:calc(var(--nav-h) + var(--sab) + 12px);left:50%;transform:translateX(-50%) translateY(8px);background:var(--sur);border:1px solid var(--brd2);border-radius:var(--r);padding:10px 16px;box-shadow:var(--sh);z-index:200;opacity:0;transition:all .22s;pointer-events:none;min-width:200px;max-width:280px;text-align:center}
+.word-pop.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.word-pop-word{font-family:'Playfair Display',serif;font-size:16px;color:var(--ac3);direction:ltr;margin-bottom:4px}
+.word-pop-tr{font-size:15px;color:var(--tx);font-weight:500;margin-bottom:3px}
+.word-pop-alts{font-size:12px;color:var(--tx2);line-height:1.7}
+
+/* PROGRESS */
+.prog-w{margin-bottom:.8rem}
+.prog-t{height:3px;background:var(--brd);border-radius:2px;overflow:hidden;margin-bottom:4px}
+.prog-f{height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));border-radius:2px;transition:width .4s ease}
+.prog-l{font-size:10px;color:var(--tx3);text-align:center}
+
+/* NAV ARROWS */
+.ph-nav{display:flex;gap:7px;margin-bottom:.8rem}
+.nav-btn{flex:1;padding:9px;border:1px solid var(--brd);border-radius:var(--rs);background:var(--sur);color:var(--tx2);font-family:'Tajawal',sans-serif;font-size:13px;cursor:pointer;transition:all .18s;touch-action:manipulation}
+.nav-btn:active{background:var(--sur2);color:var(--tx)}
+
+/* RESULT CARD */
+.res-card{background:var(--sur);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;margin-bottom:.8rem;transition:border-color .3s;min-height:60px}
+.res-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.res-lbl{font-size:10px;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase}
+.res-acts{display:flex;align-items:center;gap:7px}
+.res-clr{width:24px;height:24px;border-radius:7px;border:1px solid var(--brd2);background:transparent;color:var(--tx3);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;touch-action:manipulation}
+.res-clr:active{background:var(--rd-bg);color:var(--rd)}
+.res-ph{font-size:12px;color:var(--tx3);font-style:italic;padding:3px 0}
+.res-tx{font-size:14px;color:var(--tx);line-height:1.7;direction:ltr;text-align:left}
+.sc-sec{margin-top:9px;padding-top:9px;border-top:1px solid var(--brd)}
+.sc-row{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.sc-lbl{font-size:10px;color:var(--tx2);min-width:55px}
+.sc-bar{flex:1;height:4px;background:var(--brd);border-radius:2px;overflow:hidden}
+.sc-fill{height:100%;border-radius:2px;transition:width .8s cubic-bezier(.34,1.56,.64,1);width:0%}
+.sc-val{font-size:12px;font-weight:700;min-width:36px;text-align:right;font-family:'JetBrains Mono',monospace}
+.w-chips{display:flex;flex-wrap:wrap;gap:3px;direction:ltr;margin-top:7px}
+.wc{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;direction:ltr;font-family:'JetBrains Mono',monospace}
+.wc.ok{background:var(--gr-bg);color:var(--gr)}
+.wc.no{background:var(--rd-bg);color:var(--rd)}
+
+/* NO SUPPORT */
+.no-sup{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:var(--rs);padding:.8rem;text-align:center;font-size:12px;color:var(--rd);display:none}
+
+/* ══ BOTTOM NAV — floating pill ══ */
+.bnav{position:fixed;bottom:0;left:0;right:0;z-index:100;display:flex;justify-content:center;align-items:flex-end;padding:0 20px calc(var(--sab) + 12px);pointer-events:none;background:transparent}
+.bnav-pill{display:flex;align-items:center;justify-content:space-around;background:var(--sur);border:1px solid var(--brd2);border-radius:40px;padding:6px 8px;box-shadow:0 8px 30px rgba(0,0,0,.35),0 2px 8px rgba(0,0,0,.2);width:100%;max-width:320px;pointer-events:all;gap:4px}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 14px;border:none;background:transparent;color:var(--tx3);font-family:'Tajawal',sans-serif;font-size:9px;cursor:pointer;transition:color .18s;border-radius:24px;touch-action:manipulation;flex:1}
+.bnav-btn svg{width:20px;height:20px}
+.bnav-btn.active{color:var(--ac2)}
+.bnav-btn.active svg{stroke:var(--ac2)!important}
+
+/* CENTER RECORD — rises above pill */
+.bnav-ctr{display:flex;flex-direction:column;align-items:center;margin-top:-32px;flex-shrink:0}
+.rec-btn{width:64px;height:64px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 22px rgba(124,109,250,.55),0 0 0 5px var(--sur);position:relative;z-index:2;transition:all .22s;touch-action:manipulation;-webkit-appearance:none;user-select:none;-webkit-user-select:none}
+.rec-btn:active{transform:scale(.88)}
+.rec-btn.on{background:linear-gradient(135deg,#f87171,#e11d48);box-shadow:0 6px 22px rgba(248,113,113,.55),0 0 0 5px var(--sur)}
+.rec-btn.on::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:2px solid rgba(248,113,113,.3);animation:rp 1.3s infinite}
+@keyframes rp{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.14);opacity:.3}}
+.rec-lbl{font-size:9px;color:var(--tx3);margin-top:4px;font-family:'Tajawal',sans-serif;transition:color .2s}
+.rec-lbl.on{color:var(--rd)}
+
+/* STATS PAGE */
+.pg{display:none}
+.pg.active{display:block;animation:fU .3s ease both}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:.9rem}
+@media(min-width:600px){.stats-grid{grid-template-columns:repeat(4,1fr)}}
+.stat-card{background:var(--sur);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;text-align:center}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;background:linear-gradient(135deg,var(--ac),var(--ac2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:3px}
+.stat-lbl{font-size:11px;color:var(--tx2)}
+.sec-box{background:var(--sur);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;margin-bottom:.8rem}
+.sec-ttl{font-size:11px;color:var(--tx2);margin-bottom:9px;display:flex;align-items:center;gap:5px;text-transform:uppercase;letter-spacing:.08em}
+.wc2s{display:flex;flex-wrap:wrap;gap:5px}
+.wc2{padding:3px 10px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:1px solid var(--brd2);background:var(--sur2);color:var(--tx2);direction:ltr}
+.wc2.bad{background:var(--rd-bg);color:var(--rd);border-color:rgba(248,113,113,.2)}
+.wc2.good{background:var(--gr-bg);color:var(--gr);border-color:rgba(74,222,128,.2)}
+
+/* MY TEXTS PAGE */
+.my-list{display:flex;flex-direction:column;gap:7px;margin-bottom:1rem}
+.my-item{background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:.8rem 1rem;display:flex;align-items:center;gap:9px;cursor:pointer;transition:all .18s;touch-action:manipulation}
+.my-item:active{background:var(--sur2);border-color:var(--ac)}
+.my-prev{flex:1;font-size:12px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:left}
+.my-del{width:28px;height:28px;border-radius:8px;border:1px solid var(--brd);background:transparent;color:var(--tx3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;flex-shrink:0;touch-action:manipulation}
+.my-del:active{background:var(--rd-bg);color:var(--rd)}
+.empty-state{text-align:center;padding:2rem;font-size:13px;color:var(--tx3)}
+
+/* ADD TEXT MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.show{display:flex;animation:fU .25s ease both}
+.modal-box{width:100%;max-width:680px;background:var(--sur);border-radius:20px 20px 0 0;padding:1.25rem;padding-bottom:calc(1.25rem + var(--sab));border-top:1px solid var(--brd2);animation:slideUp .3s cubic-bezier(.34,1.2,.64,1) both}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-title{font-size:16px;font-weight:700;color:var(--tx);margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between}
+.modal-close{width:28px;height:28px;border-radius:8px;border:1px solid var(--brd2);background:var(--sur2);color:var(--tx2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+.f-lbl{font-size:11px;color:var(--tx2);margin-bottom:5px;display:block}
+.f-inp{width:100%;padding:9px 12px;background:var(--sur2);border:1px solid var(--brd2);border-radius:var(--rs);color:var(--tx);font-family:'Tajawal',sans-serif;font-size:13px;margin-bottom:8px;direction:ltr;text-align:left;-webkit-appearance:none;outline:none;transition:border-color .2s}
+.f-inp.ar{direction:rtl;text-align:right}
+.f-inp:focus{border-color:var(--ac)}
+textarea.f-inp{resize:vertical;min-height:70px}
+.add-btn{width:100%;padding:10px;border-radius:var(--rs);border:none;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;-webkit-appearance:none}
+.add-btn:active{opacity:.88}
+
+/* TIPS FAB */
+.tips-fab{position:fixed;right:12px;bottom:calc(var(--nav-h) + var(--sab) + 12px);width:32px;height:32px;border-radius:50%;background:var(--sur2);border:1px solid var(--brd2);color:var(--tx3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:150;box-shadow:0 2px 8px rgba(0,0,0,.2);touch-action:manipulation}
+.tips-fab:active{transform:scale(.88)}
+.tips-pop{position:fixed;right:12px;bottom:calc(var(--nav-h) + var(--sab) + 52px);width:230px;background:var(--sur);border:1px solid var(--brd2);border-radius:var(--r);padding:.85rem;font-size:11px;color:var(--tx2);line-height:1.9;z-index:151;box-shadow:var(--sh);display:none}
+.tips-pop.show{display:block;animation:fU .18s ease both}
+.tips-pop strong{color:var(--tx)}
+
+/* ANIMATIONS */
+@keyframes fD{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fU{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* iPad / large screens */
+@media(min-width:768px){
+  .ph-main{font-size:26px}
+  .ph-card{padding:1.5rem}
+  .stats-grid{gap:12px}
+}
+@media(min-width:1024px){
+  #pg-practice .mode-content{display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem}
+  #pg-practice .ph-card{grid-column:1;grid-row:1}
+  #pg-practice .res-card{grid-column:2;grid-row:1;align-self:start}
+}
+
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="sa">
+<div class="w">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="logo-row">
+      <div class="logo-ic">🎙</div>
+      <div class="logo-tx">SpeakPro</div>
+    </div>
+    <div class="hdr-btns">
+      <button class="ic-btn add-fab" onclick="openModal()" title="إضافة نص">＋</button>
+      <button class="ic-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
+    </div>
+  </div>
+
+  <!-- iOS NOTICE -->
+  <div class="ios-notice" id="ios-notice">
+    <span>⚠️</span>
+    <span>التسجيل الصوتي يعمل فقط في <strong>Safari</strong> على iPhone وiPad — افتح التطبيق من Safari.</span>
+  </div>
+
+  <!-- INSTALL BANNER -->
+  <div class="inst-ban" id="inst-ban">
+    <span style="font-size:18px">📲</span>
+    <div class="inst-txt">أضف التطبيق على شاشتك للاستخدام بدون إنترنت</div>
+    <button class="inst-btn" onclick="installPWA()">تثبيت</button>
+  </div>
+
+  <!-- LANG TABS — liquid -->
+  <div class="lang-tabs" id="lang-tabs">
+    <div class="lang-slider" id="lang-slider"></div>
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en',this)">🇺🇸 EN</button>
+    <button class="lang-btn" data-lang="tr" onclick="setLang('tr',this)">🇹🇷 TR</button>
+    <button class="lang-btn" data-lang="my" onclick="setLang('my',this)">📝 نصوصي</button>
+  </div>
+
+  <!-- PRACTICE PAGE -->
+  <div class="pg active" id="pg-practice">
+
+    <!-- Mode tabs — liquid -->
+    <div class="mode-tabs" id="mode-tabs">
+      <div class="mode-slider" id="mode-slider"></div>
+      <button class="mode-btn active" data-mode="normal" onclick="setMode('normal',this)">📖 تدريب</button>
+      <button class="mode-btn" data-mode="reveal" onclick="setMode('reveal',this)">🔍 كشف</button>
+      <button class="mode-btn" data-mode="free" onclick="setMode('free',this)">🎤 حر</button>
+    </div>
+
+    <div id="mode-content">
+
+    <!-- FREE MODE CONTROLS -->
+    <div class="free-controls" id="free-controls">
+      <div class="free-sec-title">إعدادات وضع الحر</div>
+      <div class="repeat-row">
+        <span class="rep-label">🔁 التكرار:</span>
+        <select class="rep-select" id="rep-count">
+          <option value="1">مرة واحدة</option>
+          <option value="2">مرتين</option>
+          <option value="3">3 مرات</option>
+          <option value="5">5 مرات</option>
+          <option value="10">10 مرات</option>
+          <option value="0">بلا نهاية ∞</option>
+        </select>
+      </div>
+      <div class="free-sec-title" style="margin-top:8px">النص للاستماع (اختياري — اترك فارغاً للجملة الحالية)</div>
+      <textarea class="sel-text-area" id="free-text" placeholder="اكتب أو الصق جملة محددة لتكرار الاستماع إليها..."></textarea>
+      <button class="free-play-btn" onclick="startFreePlay()">▶ بدء الاستماع</button>
+      <button class="free-stop-btn" id="free-stop" onclick="stopFreePlay()" style="display:none">⏹ إيقاف</button>
+      <div class="free-prog" id="free-prog"></div>
+    </div>
+
+    <!-- Phrase Card -->
+    <div class="ph-card" id="ph-card">
+      <div class="ph-hdr">
+        <div class="ph-num" id="ph-num">جملة 1 من 10</div>
+        <div class="rep-badge">🔁 <span id="rep-cnt">0</span></div>
+      </div>
+      <div id="nv">
+        <div class="ph-main" id="ph-text">How are you doing today?</div>
+        <div class="ph-phon" id="ph-phon">haʊ ɑːr juː ˈduːɪŋ təˈdeɪ</div>
+      </div>
+      <div id="rv" style="display:none">
+        <div class="reveal-words" id="reveal-words"></div>
+        <div class="ph-phon" id="ph-phon2"></div>
+      </div>
+      <div class="ph-tr" id="ph-tr">كيف حالك اليوم؟</div>
+      <div class="card-actions">
+        <button class="c-btn" id="btn-hide" onclick="toggleHide()">👁 إخفاء</button>
+        <button class="c-btn" id="btn-tts" onclick="speakPhrase()">🔊 استمع</button>
+        <button class="c-btn" onclick="markDone()">✅ حفظت</button>
+        <button class="c-btn" id="btn-clr" onclick="clearResult()" style="display:none">🗑 مسح</button>
+      </div>
+      <div class="speed-row">
+        <span class="sp-lbl">🐢</span>
+        <div class="sp-btns">
+          <button class="sp-btn" data-r="0.5" onclick="setSpeed(this)">أبطأ</button>
+          <button class="sp-btn" data-r="0.72" onclick="setSpeed(this)">بطيء</button>
+          <button class="sp-btn on" data-r="0.9" onclick="setSpeed(this)">عادي</button>
+          <button class="sp-btn" data-r="1.2" onclick="setSpeed(this)">سريع</button>
+        </div>
+        <span class="sp-lbl">🐇</span>
+      </div>
+    </div>
+
+    <div class="prog-w">
+      <div class="prog-t"><div class="prog-f" id="prog-f" style="width:10%"></div></div>
+      <div class="prog-l" id="prog-l">1 / 10</div>
+    </div>
+
+    <div class="ph-nav">
+      <button class="nav-btn" onclick="prevPhrase()">← السابقة</button>
+      <button class="nav-btn" onclick="nextPhrase()">التالية →</button>
+    </div>
+
+    <!-- RESULT above record -->
+    <div class="res-card" id="res-card">
+      <div class="res-hdr">
+        <div class="res-lbl">ما قلته</div>
+        <div class="res-acts">
+          <div id="sc-badge" style="font-size:18px"></div>
+          <button class="res-clr" id="res-clr-btn" onclick="clearResult()" style="display:none">✕</button>
+        </div>
+      </div>
+      <div id="res-content"><div class="res-ph">سيظهر هنا النص بعد التسجيل...</div></div>
+      <div class="sc-sec" id="sc-sec" style="display:none">
+        <div class="sc-row">
+          <span class="sc-lbl">دقة النطق</span>
+          <div class="sc-bar"><div class="sc-fill" id="sc-fill"></div></div>
+          <span class="sc-val" id="sc-val"></span>
+        </div>
+        <div class="w-chips" id="w-chips"></div>
+      </div>
+    </div>
+
+    <div class="no-sup" id="no-sup">⚠️ للتسجيل الصوتي: افتح في Safari (iOS) أو Chrome (Android/PC)</div>
+
+    </div><!-- /mode-content -->
+  </div><!-- /practice -->
+
+  <!-- STATS PAGE -->
+  <div class="pg" id="pg-stats">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="st-sess">0</div><div class="stat-lbl">جلسات التسجيل</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-avg">—</div><div class="stat-lbl">متوسط الدقة</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-best">—</div><div class="stat-lbl">أفضل نتيجة</div></div>
+      <div class="stat-card"><div class="stat-num" id="st-txts">0</div><div class="stat-lbl">نصوص محفوظة</div></div>
+    </div>
+    <div class="sec-box">
+      <div class="sec-ttl">🔴 كلمات تحتاج تدريباً</div>
+      <div class="wc2s" id="bad-words"><span style="font-size:12px;color:var(--tx3)">سجّل نفسك أولاً</span></div>
+    </div>
+    <div class="sec-box">
+      <div class="sec-ttl">🟢 كلمات أتقنتها</div>
+      <div class="wc2s" id="good-words"><span style="font-size:12px;color:var(--tx3)">ستظهر هنا</span></div>
+    </div>
+    <div class="sec-box">
+      <div class="sec-ttl">📊 نتائجك الأخيرة</div>
+      <div id="recent-res" style="font-size:12px;color:var(--tx3)">لا توجد نتائج بعد</div>
+    </div>
+    <div style="text-align:center;margin:1rem 0">
+      <button class="c-btn" style="margin:0 auto" onclick="clearStats()">🗑 مسح الإحصائيات</button>
+    </div>
+  </div>
+
+  <!-- MY TEXTS PAGE -->
+  <div class="pg" id="pg-mytexts">
+    <div class="my-list" id="my-list">
+      <div class="empty-state">لا توجد نصوص بعد — اضغط ＋ أعلى الشاشة لإضافة نص 📝</div>
+    </div>
+  </div>
+
+  <!-- PDF VIEWER PAGE -->
+  <div class="pg" id="pg-pdf">
+    <div id="pdf-nofile" style="text-align:center;padding:3rem 1rem">
+      <div style="font-size:52px;margin-bottom:14px;opacity:.2">📄</div>
+      <div style="font-size:14px;color:var(--tx2);margin-bottom:18px;line-height:1.7">اضغط <strong style="color:var(--ac)">＋</strong> في الأعلى لرفع ملف PDF</div>
+    </div>
+    <div class="pdf-controls" id="pdf-controls" style="display:none">
+      <div class="pdf-info" id="pdf-info"></div>
+      <div class="pdf-page-nav">
+        <button class="nav-btn" onclick="pdfPrevPage()">← السابقة</button>
+        <span class="pdf-page-lbl" id="pdf-page-lbl">صفحة 1</span>
+        <button class="nav-btn" onclick="pdfNextPage()">التالية →</button>
+      </div>
+      <canvas id="pdf-canvas" class="pdf-canvas"></canvas>
+      <div class="pdf-text-box" id="pdf-text-box"></div>
+      <div class="pdf-actions">
+        <button class="c-btn" onclick="pdfAddToTexts()">➕ أضف للتدريب</button>
+        <button class="c-btn" onclick="pdfSpeak()">🔊 اقرأ</button>
+        <button class="c-btn" onclick="pdfClose()">✕ إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /w -->
+</div><!-- /sa -->
+
+<!-- ADD TEXT / PDF MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="onOverlayClick(event)">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-title">
+      <span id="modal-ttl">إضافة</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <!-- Modal tabs -->
+    <div style="display:flex;gap:5px;background:var(--sur2);border-radius:50px;padding:4px;margin-bottom:1rem">
+      <button id="mtab-text" onclick="switchModal('text')" style="flex:1;padding:7px;border:none;border-radius:50px;background:var(--sur);color:var(--tx);font-family:Tajawal,sans-serif;font-size:13px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.12);touch-action:manipulation">📝 نص</button>
+      <button id="mtab-pdf" onclick="switchModal('pdf')" style="flex:1;padding:7px;border:none;border-radius:50px;background:transparent;color:var(--tx2);font-family:Tajawal,sans-serif;font-size:13px;cursor:pointer;touch-action:manipulation">📄 PDF</button>
+    </div>
+    <!-- Text form -->
+    <div id="modal-text-form">
+      <label class="f-lbl">النص (English / Türkçe)</label>
+      <textarea class="f-inp" id="new-txt" rows="3" placeholder="I have a dream that one day..."></textarea>
+      <label class="f-lbl">الكتابة الصوتية (اختياري)</label>
+      <input class="f-inp" id="new-ph" placeholder="aɪ hæv ə driːm...">
+      <label class="f-lbl">الترجمة العربية (اختياري)</label>
+      <input class="f-inp ar" id="new-ar" placeholder="لديّ حلم يوماً ما...">
+      <button class="add-btn" onclick="addMyText()">حفظ النص</button>
+    </div>
+    <!-- PDF form -->
+    <div id="modal-pdf-form" style="display:none">
+      <div onclick="document.getElementById('pdf-file-inp2').click()" ondragover="event.preventDefault()" ondrop="onPdfDrop2(event)" style="background:var(--sur2);border:2px dashed var(--brd2);border-radius:var(--r);padding:1.75rem 1rem;text-align:center;cursor:pointer">
+        <div style="font-size:36px;margin-bottom:8px;opacity:.4">📄</div>
+        <div style="font-size:13px;color:var(--tx2)">اضغط لرفع ملف PDF</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:3px">أو اسحب وأفلت هنا</div>
+        <input type="file" id="pdf-file-inp2" accept=".pdf" style="display:none" onchange="onPdfFileModal(this)">
+      </div>
+      <div id="pdf-modal-status" style="font-size:12px;color:var(--tx2);margin-top:8px;text-align:center;min-height:18px"></div>
+      <button id="pdf-modal-go" onclick="openPdfPage()" style="display:none;width:100%;margin-top:10px;padding:10px;border-radius:var(--rs);border:none;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-family:Tajawal,sans-serif;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">فتح في عارض PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- WORD TRANSLATION POPUP -->
+<div class="word-pop" id="word-pop">
+  <div class="word-pop-word" id="wp-word"></div>
+  <div class="word-pop-tr" id="wp-tr">جاري الترجمة...</div>
+  <div class="word-pop-alts" id="wp-alts"></div>
+</div>
+
+<!-- TIPS FAB -->
+<button class="tips-fab" id="tips-fab" onclick="toggleTips()">💡</button>
+<div class="tips-pop" id="tips-pop">
+  <strong>💡 نصائح:</strong><br>
+  · ＋ لإضافة نصك الخاص<br>
+  · ضغطة للتسجيل، ضغطة للوقف<br>
+  · "كشف": اضغط لكشف الكلمة<br>
+  · اضغط الكلمة مرة ثانية → ترجمتها<br>
+  · "حر": استمع مع تكرار مخصص<br>
+  · التسجيل iOS: يحتاج Safari
+</div>
+
+<!-- BOTTOM NAV — floating pill, record in center -->
+<nav class="bnav">
+  <div class="bnav-pill">
+    <!-- Practice -->
+    <button class="bnav-btn active" id="bn-practice" onclick="showPage('practice')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      تدريب
+    </button>
+
+    <!-- CENTER RECORD — rises above pill -->
+    <div class="bnav-ctr">
+      <button class="rec-btn" id="rec-btn" onclick="toggleRecording()">
+        <svg id="rec-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="12" rx="3"/>
+          <path d="M5 10c0 4 3 7 7 7s7-3 7-7"/>
+          <line x1="12" y1="17" x2="12" y2="22"/>
+          <line x1="8" y1="22" x2="16" y2="22"/>
+        </svg>
+      </button>
+      <div class="rec-lbl" id="rec-lbl">تسجيل</div>
+    </div>
+
+    <!-- Stats -->
+    <button class="bnav-btn" id="bn-stats" onclick="showPage('stats')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      إحصائيات
+    </button>
+  </div>
+</nav>
+
+<script>
+/* ══════ DATA ══════ */
+const DB={
+  en:[
+    {text:"How are you doing today?",ph:"haʊ ɑːr juː ˈduːɪŋ təˈdeɪ",ar:"كيف حالك اليوم؟"},
+    {text:"Nice to meet you.",ph:"naɪs tuː miːt juː",ar:"سعيد بلقائك."},
+    {text:"What time is it, please?",ph:"wɒt taɪm ɪz ɪt pliːz",ar:"كم الساعة من فضلك؟"},
+    {text:"I would like a cup of coffee.",ph:"aɪ wʊd laɪk ə kʌp ɒv ˈkɒfi",ar:"أريد فنجان قهوة."},
+    {text:"Thank you very much.",ph:"θæŋk juː ˈvɛri mʌtʃ",ar:"شكراً جزيلاً."},
+    {text:"Could you repeat that please?",ph:"kʊd juː rɪˈpiːt ðæt pliːz",ar:"هل يمكنك التكرار من فضلك؟"},
+    {text:"I am learning English every day.",ph:"aɪ æm ˈlɜːnɪŋ ˈɪŋɡlɪʃ ˈɛvri deɪ",ar:"أتعلم الإنجليزية كل يوم."},
+    {text:"The weather is beautiful today.",ph:"ðə ˈwɛðər ɪz ˈbjuːtɪfʊl təˈdeɪ",ar:"الطقس جميل اليوم."},
+    {text:"Can you help me, please?",ph:"kæn juː hɛlp miː pliːz",ar:"هل يمكنك مساعدتي من فضلك؟"},
+    {text:"I am very happy to be here.",ph:"aɪ æm ˈvɛri ˈhæpi tuː biː hɪər",ar:"أنا سعيد جداً بوجودي هنا."},
+  ],
+  tr:[
+    {text:"Nasılsınız?",ph:"na-sıl-sı-nız",ar:"كيف حالك؟"},
+    {text:"Merhaba, tanıştığımıza memnun oldum.",ph:"mer-ha-ba ta-nış-tı-ğı-mı-za mem-nun ol-dum",ar:"مرحباً، سعيد بلقائك."},
+    {text:"Saat kaç şimdi?",ph:"sa-at kaç şim-di",ar:"كم الساعة الآن؟"},
+    {text:"Bir kahve istiyorum lütfen.",ph:"bir kah-ve is-ti-yo-rum lüt-fen",ar:"أريد قهوة من فضلك."},
+    {text:"Teşekkür ederim.",ph:"te-şek-kür e-de-rim",ar:"شكراً لك."},
+    {text:"Lütfen tekrar eder misiniz?",ph:"lüt-fen tek-rar e-der mi-si-niz",ar:"هل يمكنك التكرار من فضلك؟"},
+    {text:"Her gün Türkçe öğreniyorum.",ph:"her gün türk-çe öğ-re-ni-yo-rum",ar:"أتعلم التركية كل يوم."},
+    {text:"Bugün hava çok güzel.",ph:"bu-gün ha-va çok gü-zel",ar:"الطقس جميل اليوم."},
+    {text:"Bana yardım edebilir misiniz?",ph:"ba-na yar-dım e-de-bi-lir mi-si-niz",ar:"هل يمكنك مساعدتي؟"},
+    {text:"Burada olmaktan çok mutluyum.",ph:"bu-ra-da ol-mak-tan çok mut-lu-yum",ar:"أنا سعيد جداً بوجودي هنا."},
+  ],
+  my:[]
+};
+
+/* Built-in dictionary for offline translation (common words) */
+const DICT={
+  how:"كيف",are:"هو/هي/هم",you:"أنت/أنتم",doing:"تفعل/تعمل",today:"اليوم",
+  nice:"لطيف/جميل",to:"إلى/ل",meet:"يلتقي/يقابل",what:"ماذا/ما",time:"وقت/ساعة",
+  it:"هو/هي",please:"من فضلك/رجاءً",would:"سيكون/يود",like:"مثل/يحب",
+  "a":"حرف تنكير",cup:"كوب/فنجان",of:"من/في",coffee:"قهوة",thank:"شكر",
+  very:"جداً",much:"كثير",could:"يمكن/يستطيع",repeat:"يكرر/يعيد",that:"ذلك/هذا",
+  "i":"أنا",am:"أنا (فعل)",learning:"يتعلم",english:"الإنجليزية",every:"كل",
+  day:"يوم",the:"الـ (تعريف)",weather:"الطقس/الجو",is:"هو/يكون",beautiful:"جميل",
+  can:"يستطيع/يمكن",help:"مساعدة/يساعد",me:"أنا (مفعول)",happy:"سعيد",be:"يكون",
+  here:"هنا",good:"جيد",morning:"صباح",night:"ليل",
+  go:"يذهب",come:"يأتي",see:"يرى",look:"ينظر",want:"يريد",
+  need:"يحتاج",have:"يملك/لديه",get:"يحصل/يأخذ",make:"يصنع",think:"يفكر",
+  know:"يعرف",say:"يقول",take:"يأخذ",give:"يعطي",use:"يستخدم",
+  find:"يجد",tell:"يخبر",work:"يعمل",call:"يتصل/يسمي",try:"يحاول",
+  ask:"يسأل",feel:"يشعر",become:"يصبح",leave:"يغادر/يترك",put:"يضع",
+  seem:"يبدو",keep:"يحتفظ",let:"يدع/يسمح",begin:"يبدأ",show:"يظهر",
+  hear:"يسمع",play:"يلعب",run:"يجري",move:"يتحرك",live:"يعيش",
+  believe:"يؤمن/يصدق",hold:"يمسك",bring:"يجلب",write:"يكتب",stand:"يقف",
+  city:"مدينة",country:"دولة/بلد",year:"سنة",people:"الناس",world:"العالم",
+  way:"طريقة/طريق",man:"رجل",woman:"امرأة",child:"طفل",home:"بيت/منزل",
+  hand:"يد",life:"حياة",eye:"عين",word:"كلمة",place:"مكان",
+  thing:"شيء",food:"طعام",water:"ماء",money:"مال/نقود",school:"مدرسة",
+  family:"عائلة",friend:"صديق",love:"حب/يحب",heart:"قلب",mind:"عقل/ذهن",
+  big:"كبير",small:"صغير",long:"طويل",little:"قليل/صغير",own:"يمتلك/نفسه",
+  right:"صحيح/يمين",high:"عالٍ",next:"التالي/القادم",early:"مبكر",young:"شاب/صغير",
+  old:"قديم/كبير في السن",important:"مهم",public:"عام/الجمهور",private:"خاص",
+  real:"حقيقي",best:"الأفضل",free:"حر/مجاني",easy:"سهل",hard:"صعب/قاسٍ",
+  new:"جديد",different:"مختلف",same:"نفسه/مثل",able:"قادر",
+  between:"بين",under:"تحت",never:"أبداً/لا يوماً",always:"دائماً",
+  often:"كثيراً/في الغالب",sometimes:"أحياناً",still:"لا يزال/هادئ",
+  just:"فقط/للتو",also:"أيضاً",back:"خلف/عودة",even:"حتى/حتى لو",
+  well:"جيداً/حسناً",many:"كثير",most:"معظم",other:"آخر",
+};
+
+/* ══════ STATE ══════ */
+let lang='en',idx=0,mode='normal';
+let isRec=false,recObj=null,accFinal='',shouldRec=false,lastFinalLen=0;
+let isHid=false,isTTS=false,ttsRate=0.9;
+let myTexts=[],stats={sess:0,scores:[],err:{},ok:{},reps:{}};
+let wordPopTimer=null,audioCtx=null;
+let freePlayActive=false,freeRepDone=0,freeTotalRep=1,freeUtter=null;
+
+/* ══════ INIT ══════ */
+try{myTexts=JSON.parse(localStorage.getItem('sp_my')||'[]')}catch(e){}
+try{const s=JSON.parse(localStorage.getItem('sp_stats')||'{}');
+  stats.sess=s.sess||0;stats.scores=s.scores||[];
+  stats.err=s.err||{};stats.ok=s.ok||{};stats.reps=s.reps||{}}catch(e){}
+DB.my=myTexts;
+
+/* Detect iOS */
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const isPWA=window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
+
+// Show iOS notice if on iOS and not Safari or if PWA
+if(isIOS&&(!isSafari||isPWA)){
+  document.getElementById('ios-notice').classList.add('show');
+}
+
+/* ══════ THEME ══════ */
+let dark=localStorage.getItem('sp_theme')!=='light';
+applyTheme();
+function toggleTheme(){dark=!dark;localStorage.setItem('sp_theme',dark?'dark':'light');applyTheme()}
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+  document.getElementById('theme-btn').textContent=dark?'🌙':'☀️';
+  const m=document.getElementById('theme-meta');if(m)m.content=dark?'#0a0a0f':'#f0f0f6';
+}
+
+/* ══════ LIQUID SLIDER ══════ */
+function updateSlider(containerId,sliderId,activeBtn){
+  const cont=document.getElementById(containerId);
+  const slider=document.getElementById(sliderId);
+  if(!cont||!slider||!activeBtn)return;
+  const contRect=cont.getBoundingClientRect();
+  const btnRect=activeBtn.getBoundingClientRect();
+  slider.style.left=(btnRect.left-contRect.left)+'px';
+  slider.style.width=btnRect.width+'px';
+}
+function initSliders(){
+  const lb=document.querySelector('.lang-btn.active');
+  const mb=document.querySelector('.mode-btn.active');
+  if(lb)updateSlider('lang-tabs','lang-slider',lb);
+  if(mb)updateSlider('mode-tabs','mode-slider',mb);
+}
+setTimeout(initSliders,100);
+window.addEventListener('resize',initSliders);
+
+/* ══════ PAGES ══════ */
+function showPage(p){
+  ['practice','stats','mytexts','pdf'].forEach(x=>{
+    const pg=document.getElementById('pg-'+x);if(pg)pg.classList.toggle('active',x===p);
+    const bn=document.getElementById('bn-'+x);if(bn)bn.classList.toggle('active',x===p);
+  });
+  if(p==='stats')renderStats();
+  if(p==='mytexts')renderMyTexts();
+}
+
+/* ══════ LANG ══════ */
+function setLang(l,btn){
+  lang=l;idx=0;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSlider('lang-tabs','lang-slider',btn);
+  if(l==='my'){showPage('mytexts');return}
+  showPage('practice');updatePhrase();clearResult();
+}
+
+/* ══════ MODE ══════ */
+function setMode(m,btn){
+  mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSlider('mode-tabs','mode-slider',btn);
+  document.getElementById('free-controls').classList.toggle('show',m==='free');
+  updatePhrase();clearResult();
+}
+
+/* ══════ PHRASE ══════ */
+function list(){return lang==='my'?myTexts:DB[lang]}
+function updatePhrase(){
+  const L=list();
+  if(!L||!L.length){
+    document.getElementById('ph-text').textContent='لا توجد نصوص — اضغط ＋ لإضافة نص';
+    ['ph-phon','ph-phon2','ph-tr'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=''});
+    document.getElementById('prog-f').style.width='0%';
+    document.getElementById('prog-l').textContent='0 / 0';
+    return;
+  }
+  if(idx>=L.length)idx=0;
+  const p=L[idx];const key=lang+'_'+idx;
+  document.getElementById('ph-num').textContent=`جملة ${idx+1} من ${L.length}`;
+  document.getElementById('rep-cnt').textContent=stats.reps[key]||0;
+  document.getElementById('ph-text').textContent=p.text||'';
+  document.getElementById('ph-phon').textContent=p.ph||'';
+  document.getElementById('ph-phon2').textContent=p.ph||'';
+  document.getElementById('ph-tr').textContent=p.ar||'';
+  document.getElementById('prog-f').style.width=((idx+1)/L.length*100)+'%';
+  document.getElementById('prog-l').textContent=`${idx+1} / ${L.length}`;
+  isHid=false;
+  document.getElementById('ph-text').classList.remove('blurred');
+  const bh=document.getElementById('btn-hide');bh.classList.remove('on');bh.textContent='👁 إخفاء';
+  const isRev=mode==='reveal';
+  document.getElementById('nv').style.display=isRev?'none':'block';
+  document.getElementById('rv').style.display=isRev?'block':'none';
+  if(isRev)buildReveal(p.text||'');
+}
+
+function buildReveal(txt){
+  const words=txt.split(/\s+/).filter(Boolean);
+  const c=document.getElementById('reveal-words');c.innerHTML='';
+  words.forEach((w,i)=>{
+    const s=document.createElement('span');
+    s.className='rw '+(i===0?'cur':'hw');
+    s.textContent=w;s.dataset.w=w;s.dataset.i=String(i);
+    s.addEventListener('click',()=>onRW(s,i,words));
+    c.appendChild(s);
+  });
+}
+
+function onRW(el,i,words){
+  if(el.classList.contains('shown')){
+    // Already revealed → show translation
+    showWordTranslation(el.dataset.w,i,words);
+    return;
+  }
+  document.querySelectorAll('.rw').forEach((s,j)=>{
+    s.className='rw '+(j<=i?'shown':j===i+1?'cur':'hw');
+  });
+}
+
+/* ══════ WORD TRANSLATION ══════ */
+function showWordTranslation(word,wordIdx,words){
+  const cleanWord=word.toLowerCase().replace(/[^a-zğışöüçа-я]/gi,'');
+  const pop=document.getElementById('word-pop');
+  document.getElementById('wp-word').textContent=word;
+  document.getElementById('wp-tr').textContent='جاري...';
+  document.getElementById('wp-alts').textContent='';
+  pop.classList.add('show');
+  clearTimeout(wordPopTimer);
+
+  // Try offline dict first
+  const offlineTr=DICT[cleanWord];
+  if(offlineTr){
+    const parts=offlineTr.split('/');
+    document.getElementById('wp-tr').textContent=parts[0];
+    if(parts.length>1)document.getElementById('wp-alts').textContent='المعاني: '+offlineTr;
+    else document.getElementById('wp-alts').textContent='';
+    wordPopTimer=setTimeout(()=>pop.classList.remove('show'),3500);
+    return;
+  }
+
+  // Try online translation (MyMemory API - free, no key needed)
+  const sentence=(words||[cleanWord]).join(' ');
+  const sl=lang==='tr'?'tr':'en';
+  fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanWord)}&langpair=${sl}|ar&de=speakpro`)
+    .then(r=>r.json())
+    .then(d=>{
+      const tr=(d.responseData?.translatedText||'').trim();
+      if(tr&&tr!==cleanWord&&!/[a-zA-Z]/.test(tr)){
+        document.getElementById('wp-tr').textContent=tr;
+        // Also show sentence context translation if available
+        const matches=d.matches||[];
+        const alts=[...new Set(matches.slice(0,3).map(m=>m.translation).filter(t=>t&&t!==tr))];
+        if(alts.length)document.getElementById('wp-alts').textContent='أيضاً: '+alts.join(' / ');
+      }else{
+        document.getElementById('wp-tr').textContent='—';
+      }
+    })
+    .catch(()=>{document.getElementById('wp-tr').textContent='(تحتاج إنترنت)'})
+    .finally(()=>{wordPopTimer=setTimeout(()=>pop.classList.remove('show'),4000)});
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.rw')&&!e.target.closest('#word-pop')){
+    document.getElementById('word-pop').classList.remove('show');
+  }
+});
+
+function nextPhrase(){const L=list();if(!L.length)return;idx=(idx+1)%L.length;updatePhrase();clearResult();anim()}
+function prevPhrase(){const L=list();if(!L.length)return;idx=(idx-1+L.length)%L.length;updatePhrase();clearResult();anim()}
+function anim(){const c=document.getElementById('ph-card');c.style.opacity='0';c.style.transform='translateY(4px)';setTimeout(()=>{c.style.transition='all .25s ease';c.style.opacity='1';c.style.transform='translateY(0)'},20)}
+function toggleHide(){isHid=!isHid;document.getElementById('ph-text').classList.toggle('blurred',isHid);const b=document.getElementById('btn-hide');b.textContent=isHid?'👁 إظهار':'👁 إخفاء';b.classList.toggle('on',isHid)}
+function markDone(){const key=lang+'_'+idx;stats.reps[key]=(stats.reps[key]||0)+1;saveStats();document.getElementById('rep-cnt').textContent=stats.reps[key];const c=document.getElementById('ph-card');c.style.borderColor='var(--gr)';setTimeout(()=>c.style.borderColor='',900)}
+
+/* ══════ SPEED ══════ */
+function setSpeed(btn){
+  ttsRate=parseFloat(btn.dataset.r);
+  document.querySelectorAll('.sp-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+/* ══════ TTS ══════ */
+function initAudio(){
+  if(audioCtx)return;
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended')audioCtx.resume();
+    keepAlive();
+  }catch(e){}
+}
+function keepAlive(){
+  if(!audioCtx)return;
+  try{
+    const b=audioCtx.createBuffer(1,audioCtx.sampleRate*.1,audioCtx.sampleRate);
+    const s=audioCtx.createBufferSource();s.buffer=b;
+    const g=audioCtx.createGain();g.gain.value=.001;
+    s.connect(g);g.connect(audioCtx.destination);s.start();
+    setTimeout(keepAlive,25000);
+  }catch(e){}
+}
+
+function speakPhrase(){
+  const L=list();const p=L[idx];if(!p)return;
+  if(isTTS){speechSynthesis.cancel();return}
+  initAudio();
+  const u=new SpeechSynthesisUtterance(p.text);
+  u.lang=lang==='tr'?'tr-TR':'en-US';
+  u.rate=ttsRate;u.pitch=ttsRate<0.65?0.92:1.0;u.volume=1;
+  const b=document.getElementById('btn-tts');
+  isTTS=true;b.classList.add('on');b.textContent='⏹ إيقاف';
+  speechSynthesis.cancel();
+  setTimeout(()=>speechSynthesis.speak(u),60);
+  u.onend=u.onerror=()=>{isTTS=false;b.classList.remove('on');b.textContent='🔊 استمع'};
+}
+
+/* ══════ FREE MODE TTS ══════ */
+function startFreePlay(){
+  const L=list();const p=L[idx];if(!p&&!document.getElementById('free-text').value.trim())return;
+  const customText=document.getElementById('free-text').value.trim();
+  const textToPlay=customText||p?.text||'';
+  if(!textToPlay)return;
+  const repVal=parseInt(document.getElementById('rep-count').value);
+  freeTotalRep=repVal===0?9999:repVal;
+  freeRepDone=0;
+  freePlayActive=true;
+  document.getElementById('free-stop').style.display='block';
+  initAudio();
+  speechSynthesis.cancel();
+  playFreeRep(textToPlay);
+}
+function playFreeRep(text){
+  if(!freePlayActive){stopFreePlay();return}
+  freeRepDone++;
+  const total=freeTotalRep===9999?'∞':freeTotalRep;
+  document.getElementById('free-prog').textContent=`التكرار ${freeRepDone} من ${total}`;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang=lang==='tr'?'tr-TR':'en-US';
+  u.rate=ttsRate;u.pitch=ttsRate<0.65?0.92:1.0;u.volume=1;
+  freeUtter=u;
+  u.onend=()=>{
+    if(freePlayActive&&freeRepDone<freeTotalRep){
+      setTimeout(()=>playFreeRep(text),600);
+    }else{
+      stopFreePlay();
+    }
+  };
+  u.onerror=()=>stopFreePlay();
+  speechSynthesis.speak(u);
+}
+function stopFreePlay(){
+  freePlayActive=false;freeRepDone=0;
+  speechSynthesis.cancel();
+  document.getElementById('free-stop').style.display='none';
+  document.getElementById('free-prog').textContent='';
+}
+
+/* ══════ RECORDING v7 — no beeps ══════
+   continuous=true = mic stays open, no restart = no system beep
+   isAborting flag = tells onend we stopped deliberately (no restart)
+*/
+let isAborting=false;
+
+function setRecUI(on){
+  const btn=document.getElementById('rec-btn');
+  if(btn)btn.classList.toggle('on',on);
+  const ic=document.getElementById('rec-icon');
+  if(ic)ic.innerHTML=on
+    ?'<rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" stroke="none"/>'
+    :'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10c0 4 3 7 7 7s7-3 7-7"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>';
+  const lbl=document.getElementById('rec-lbl');
+  if(lbl){lbl.textContent=on?'جاري...':'تسجيل';lbl.classList.toggle('on',on);}
+}
+
+function toggleRecording(){
+  const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
+  if(!hasSR){document.getElementById('no-sup').style.display='block';return}
+  if(isRec){stopRec();return}
+  startRec();
+}
+
+function startRec(){
+  accFinal='';shouldRec=true;isAborting=false;isRec=true;
+  stats.sess++;saveStats();clearResult();
+  setRecUI(true);
+  launchRec();
+}
+
+function launchRec(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  let r;
+  try{r=new SR();}catch(e){setRecUI(false);isRec=false;return;}
+  recObj=r;
+
+  r.lang=lang==='tr'?'tr-TR':'en-US';
+  r.continuous=true;      // stays open — no restart sound
+  r.interimResults=true;
+  r.maxAlternatives=1;
+
+  r.onresult=ev=>{
+    let fc='',ic='';
+    for(let i=ev.resultIndex;i<ev.results.length;i++){
+      if(ev.results[i].isFinal)fc+=ev.results[i][0].transcript+' ';
+      else ic+=ev.results[i][0].transcript;
+    }
+    if(fc)accFinal+=fc;
+    const shown=(accFinal+ic).trim();
+    if(shown){
+      document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
+      const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
+      const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
+      if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
+    }
+  };
+
+  r.onend=()=>{
+    // User stopped → just clean up UI
+    if(isAborting||!shouldRec){
+      isRec=false;isAborting=false;
+      setRecUI(false);
+      return;
+    }
+    // Unexpected end (Android kills mic after silence) → restart once, silently
+    if(shouldRec&&isRec){
+      setTimeout(launchRec,400);
+    }
+  };
+
+  r.onerror=ev=>{
+    if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
+      shouldRec=false;isRec=false;isAborting=false;
+      setRecUI(false);
+      document.getElementById('no-sup').style.display='block';
+    }
+    // no-speech = user is silent, continuous keeps going fine
+    // aborted = we called abort(), onend will handle
+  };
+
+  try{r.start();}
+  catch(e){if(shouldRec&&isRec)setTimeout(launchRec,500);}
+}
+
+function stopRec(){
+  isAborting=true;
+  shouldRec=false;isRec=false;
+  if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
+  setRecUI(false);
+}
+
+/* ══════ ANALYZE ══════ */
+function analyze(spoken){
+  const L=list();const target=(L[idx]||{}).text||'';if(!target)return;
+  const norm=s=>s.toLowerCase().replace(/[^a-zğışöüçа-я0-9\s]/gi,'').trim();
+  const tw=norm(target).split(/\s+/).filter(Boolean);
+  const sw=norm(spoken).split(/\s+/).filter(Boolean);
+  let matched=0;
+  const chips=tw.map(w=>{
+    const ok=sw.some(s=>s===w||s.startsWith(w.slice(0,Math.max(3,w.length-1)))||w.startsWith(s.slice(0,Math.max(3,s.length-1))));
+    if(ok){matched++;stats.ok[w]=(stats.ok[w]||0)+1}else stats.err[w]=(stats.err[w]||0)+1;
+    return`<span class="wc ${ok?'ok':'no'}">${w}</span>`;
+  });
+  const score=Math.round(matched/tw.length*100);
+  stats.scores.push(score);if(stats.scores.length>100)stats.scores=stats.scores.slice(-100);
+  saveStats();
+  const col=score>=80?'#4ade80':score>=50?'#fbbf24':'#f87171';
+  const em=score>=80?'🌟':score>=50?'👍':'💪';
+  document.getElementById('sc-sec').style.display='block';
+  document.getElementById('sc-fill').style.width=score+'%';
+  document.getElementById('sc-fill').style.background=col;
+  document.getElementById('sc-val').style.color=col;
+  document.getElementById('sc-val').textContent=score+'%';
+  document.getElementById('w-chips').innerHTML=chips.join('');
+  document.getElementById('res-card').style.borderColor=col+'44';
+  document.getElementById('sc-badge').textContent=em;
+}
+
+function clearResult(){
+  accFinal='';lastFinalLen=0;
+  document.getElementById('res-content').innerHTML='<div class="res-ph">سيظهر هنا النص بعد التسجيل...</div>';
+  document.getElementById('sc-sec').style.display='none';
+  document.getElementById('sc-badge').textContent='';
+  document.getElementById('res-card').style.borderColor='';
+  document.getElementById('res-clr-btn').style.display='none';
+  document.getElementById('btn-clr').style.display='none';
+}
+
+/* ══════ MODAL ══════ */
+function openModal(){document.getElementById('modal-overlay').classList.add('show')}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('show')}
+function onOverlayClick(e){if(e.target===document.getElementById('modal-overlay'))closeModal()}
+
+function addMyText(){
+  const t=document.getElementById('new-txt').value.trim();
+  const ph=document.getElementById('new-ph').value.trim();
+  const ar=document.getElementById('new-ar').value.trim();
+  if(!t){alert('يرجى إدخال النص أولاً');return}
+  myTexts.push({text:t,ph,ar});DB.my=myTexts;
+  localStorage.setItem('sp_my',JSON.stringify(myTexts));
+  document.getElementById('new-txt').value='';
+  document.getElementById('new-ph').value='';
+  document.getElementById('new-ar').value='';
+  closeModal();renderMyTexts();
+}
+
+/* ══════ MY TEXTS ══════ */
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function delMyText(i){myTexts.splice(i,1);DB.my=myTexts;localStorage.setItem('sp_my',JSON.stringify(myTexts));renderMyTexts()}
+function renderMyTexts(){
+  const el=document.getElementById('my-list');
+  if(!myTexts.length){el.innerHTML='<div class="empty-state">لا توجد نصوص — اضغط ＋ أعلى الشاشة 📝</div>';return}
+  el.innerHTML=myTexts.map((t,i)=>`<div class="my-item" onclick="goMyText(${i})"><div class="my-prev">${esc(t.text)}</div><button class="my-del" onclick="event.stopPropagation();delMyText(${i})">🗑</button></div>`).join('');
+}
+function goMyText(i){
+  lang='my';idx=i;
+  document.querySelectorAll('.lang-btn').forEach((b,j)=>b.classList.toggle('active',j===2));
+  updateSlider('lang-tabs','lang-slider',document.querySelectorAll('.lang-btn')[2]);
+  showPage('practice');updatePhrase();clearResult();
+}
+
+/* ══════ STATS ══════ */
+function saveStats(){try{localStorage.setItem('sp_stats',JSON.stringify(stats))}catch(e){}}
+function renderStats(){
+  document.getElementById('st-sess').textContent=stats.sess;
+  document.getElementById('st-txts').textContent=myTexts.length;
+  if(stats.scores.length){
+    document.getElementById('st-avg').textContent=Math.round(stats.scores.reduce((a,b)=>a+b,0)/stats.scores.length)+'%';
+    document.getElementById('st-best').textContent=Math.max(...stats.scores)+'%';
+  }
+  const bad=Object.entries(stats.err).filter(([w,c])=>c>(stats.ok[w]||0)).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  const good=Object.entries(stats.ok).filter(([w,c])=>c>=3&&c>(stats.err[w]||0)*2).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  document.getElementById('bad-words').innerHTML=bad.length?bad.map(([w,c])=>`<span class="wc2 bad">${esc(w)} ×${c}</span>`).join(''):'<span style="font-size:12px;color:var(--tx3)">سجّل نفسك أولاً</span>';
+  document.getElementById('good-words').innerHTML=good.length?good.map(([w,c])=>`<span class="wc2 good">${esc(w)} ✓${c}</span>`).join(''):'<span style="font-size:12px;color:var(--tx3)">ستظهر هنا</span>';
+  const rec=stats.scores.slice(-10).reverse();
+  document.getElementById('recent-res').innerHTML=rec.length?rec.map(s=>{const col=s>=80?'var(--gr)':s>=50?'var(--am)':'var(--rd)';return`<span style="display:inline-block;margin:3px;padding:2px 9px;border-radius:20px;background:${col}22;color:${col};font-size:12px;font-family:'JetBrains Mono',monospace">${s}%</span>`}).join(''):'<span style="font-size:12px;color:var(--tx3)">لا توجد نتائج بعد</span>';
+}
+function clearStats(){if(!confirm('مسح كل الإحصائيات؟'))return;stats={sess:0,scores:[],err:{},ok:{},reps:{}};saveStats();renderStats()}
+
+/* ══════ TIPS ══════ */
+function toggleTips(){document.getElementById('tips-pop').classList.toggle('show')}
+document.addEventListener('click',e=>{
+  const p=document.getElementById('tips-pop'),f=document.getElementById('tips-fab');
+  if(p&&f&&!p.contains(e.target)&&!f.contains(e.target))p.classList.remove('show');
+});
+
+/* ══════ MODAL SWITCH ══════ */
+function switchModal(tab){
+  document.getElementById('modal-text-form').style.display=tab==='text'?'block':'none';
+  document.getElementById('modal-pdf-form').style.display=tab==='pdf'?'block':'none';
+  var tt=document.getElementById('mtab-text');
+  var tp=document.getElementById('mtab-pdf');
+  if(tt){tt.style.background=tab==='text'?'var(--sur)':'transparent';tt.style.color=tab==='text'?'var(--tx)':'var(--tx2)';}
+  if(tp){tp.style.background=tab==='pdf'?'var(--sur)':'transparent';tp.style.color=tab==='pdf'?'var(--tx)':'var(--tx2)';}
+  var ttl=document.getElementById('modal-ttl');
+  if(ttl)ttl.textContent=tab==='text'?'إضافة نص':'رفع PDF';
+}
+
+/* ══════ PWA ══════ */
+let deferredPWA=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPWA=e;document.getElementById('inst-ban').classList.add('show')});
+function installPWA(){if(!deferredPWA)return;deferredPWA.prompt();deferredPWA.userChoice.then(()=>{deferredPWA=null;document.getElementById('inst-ban').classList.remove('show')})}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+/* ══════ PDF MODAL ══════ */
+let pendingPdfFile=null;
+function onPdfDrop2(e){
+  e.preventDefault();
+  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(f&&f.type==='application/pdf'){pendingPdfFile=f;showPdfReady(f.name);}
+}
+function onPdfFileModal(inp){
+  var f=inp.files&&inp.files[0];
+  if(f){pendingPdfFile=f;showPdfReady(f.name);}
+}
+function showPdfReady(name){
+  var el=document.getElementById('pdf-modal-status');if(el)el.textContent='✅ '+name;
+  var gb=document.getElementById('pdf-modal-go');if(gb)gb.style.display='block';
+}
+function openPdfPage(){
+  closeModal();
+  showPage('pdf');
+  // Small delay to let modal close animation finish
+  setTimeout(function(){
+    if(pendingPdfFile)loadPdfFile(pendingPdfFile);
+  }, 200);
+}
+
+/* ══════ PDF ══════ */
+let pdfDoc=null,pdfPage=1,pdfText='',pdfFileName='';
+
+function loadPdfJs(cb){
+  if(window.pdfjsLib){cb();return;}
+  function tryLoad(url,wUrl,next){
+    var s=document.createElement('script');
+    s.src=url;
+    s.onload=function(){window.pdfjsLib.GlobalWorkerOptions.workerSrc=wUrl;cb();};
+    s.onerror=next||function(){
+      var el=document.getElementById('pdf-info');
+      if(el)el.textContent='⚠️ تحتاج إنترنت لتحميل مكتبة PDF';
+    };
+    document.head.appendChild(s);
+  }
+  tryLoad(
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js',
+    function(){tryLoad(
+      'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.min.js',
+      'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js',
+      null
+    );}
+  );
+}
+
+function loadPdfFile(file){
+  if(!file)return;
+  pdfFileName=file.name;
+  var nf=document.getElementById('pdf-nofile');if(nf)nf.style.display='none';
+  document.getElementById('pdf-controls').style.display='block';
+  var info=document.getElementById('pdf-info');
+  if(info)info.textContent='جاري تحميل '+file.name+'...';
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var bytes=new Uint8Array(ev.target.result);
+    loadPdfJs(function(){
+      window.pdfjsLib.getDocument({data:bytes,verbosity:0}).promise.then(function(doc){
+        pdfDoc=doc;pdfPage=1;
+        if(info)info.textContent=file.name+' — '+doc.numPages+' صفحة';
+        renderPdfPage();
+      }).catch(function(err){
+        if(info)info.textContent='⚠️ خطأ: '+(err.message||err);
+      });
+    });
+  };
+  reader.onerror=function(){if(info)info.textContent='⚠️ خطأ في قراءة الملف';};
+  reader.readAsArrayBuffer(file);
+}
+
+function renderPdfPage(){
+  if(!pdfDoc)return;
+  pdfDoc.getPage(pdfPage).then(function(page){
+    var canvas=document.getElementById('pdf-canvas');
+    if(!canvas)return;
+    var ctx=canvas.getContext('2d');
+    var vw=Math.min(window.innerWidth-32,680);
+    var vp0=page.getViewport({scale:1});
+    var sc=Math.min(vw/vp0.width,2.5);
+    var vp=page.getViewport({scale:sc});
+    canvas.width=vp.width;canvas.height=vp.height;
+    canvas.style.width='100%';canvas.style.height='auto';
+    page.render({canvasContext:ctx,viewport:vp});
+    document.getElementById('pdf-page-lbl').textContent=
+      'صفحة '+pdfPage+' من '+pdfDoc.numPages;
+    page.getTextContent().then(function(tc){
+      pdfText=tc.items.map(function(i){return i.str;}).join(' ').replace(/ {2,}/g,' ').trim();
+      var tb=document.getElementById('pdf-text-box');
+      if(tb){tb.textContent=pdfText;tb.style.display=pdfText?'block':'none';}
+    });
+  }).catch(function(e){console.warn('Page err:',e);});
+}
+
+function pdfNextPage(){if(pdfDoc&&pdfPage<pdfDoc.numPages){pdfPage++;renderPdfPage();}}
+function pdfPrevPage(){if(pdfDoc&&pdfPage>1){pdfPage--;renderPdfPage();}}
+
+function pdfSpeak(){
+  if(!pdfText){alert('لا يوجد نص في هذه الصفحة');return;}
+  speechSynthesis.cancel();
+  setTimeout(function(){
+    var u=new SpeechSynthesisUtterance(pdfText.slice(0,600));
+    u.lang='en-US';u.rate=ttsRate;u.pitch=1;u.volume=1;
+    speechSynthesis.speak(u);
+  },80);
+}
+
+function pdfAddToTexts(){
+  if(!pdfText){alert('لا يوجد نص');return;}
+  var sents=pdfText.match(/[^.!?]{10,}[.!?]/g)||[];
+  if(!sents.length)sents=[pdfText.slice(0,200)];
+  var added=0;
+  sents.slice(0,5).forEach(function(s){
+    var t=s.trim();
+    if(t.length>10&&t.length<400){myTexts.push({text:t,ph:'',ar:''});added++;}
+  });
+  if(added){
+    DB.my=myTexts;
+    localStorage.setItem('sp_my',JSON.stringify(myTexts));
+    renderMyTexts();
+    alert('تمت إضافة '+added+' جملة ✅');
+  } else {
+    alert('لم يتم إيجاد جمل مناسبة');
+  }
+}
+
+function pdfClose(){
+  pdfDoc=null;pdfPage=1;pdfText='';pdfFileName='';pendingPdfFile=null;
+  var nf=document.getElementById('pdf-nofile');if(nf)nf.style.display='';
+  document.getElementById('pdf-controls').style.display='none';
+  var cv=document.getElementById('pdf-canvas');if(cv){cv.width=0;cv.height=0;}
+  var tb=document.getElementById('pdf-text-box');if(tb)tb.style.display='none';
+  var fi=document.getElementById('pdf-file-inp2');if(fi)fi.value='';
+  var st=document.getElementById('pdf-modal-status');if(st)st.textContent='';
+  var gb=document.getElementById('pdf-modal-go');if(gb)gb.style.display='none';
+}
+
+/* ══════ INIT ══════ */
+updatePhrase();
+renderMyTexts();
+</script>
+</body>
+</html>
