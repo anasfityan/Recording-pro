@@ -45,15 +45,16 @@ body::before{content:'';position:fixed;top:-30%;left:-20%;width:60%;height:60%;b
 
 /* HEADER */
 .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem}
-.logo-row{display:flex;align-items:center;gap:9px}
-.logo-ic{width:38px;height:38px;background:linear-gradient(135deg,var(--ac),var(--ac2));border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 14px rgba(124,109,250,.35);flex-shrink:0}
-.logo-tx{font-family:'Playfair Display',serif;font-size:20px;background:linear-gradient(135deg,var(--ac),var(--ac2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hdr-btns{display:flex;gap:7px;align-items:center}
-.ic-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--brd2);background:var(--sur);color:var(--tx2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;touch-action:manipulation;position:relative}
-.ic-btn:active{background:var(--sur2);transform:scale(.93)}
-/* ADD TEXT BUTTON */
-.add-fab{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border-color:transparent;font-size:20px;box-shadow:0 2px 12px rgba(124,109,250,.4)}
-.add-fab:active{opacity:.85}
+.logo-tx{font-family:'Playfair Display',serif;font-size:22px;letter-spacing:-.3px;line-height:1.1}
+.logo-s{color:var(--ac)}
+.logo-p{color:var(--ac2)}
+.logo-greet{font-size:11px;color:var(--tx3);margin-top:1px;font-family:'Tajawal',sans-serif;font-weight:400}
+.hdr-btns{display:flex;gap:10px;align-items:center}
+.ic-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--brd2);background:var(--sur);color:var(--tx2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;touch-action:manipulation}
+.ic-btn:active{background:var(--sur2);transform:scale(.92)}
+.add-fab{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border-color:transparent;font-size:19px;box-shadow:0 2px 10px rgba(124,109,250,.4)}
+.theme-bare{background:none;border:none;font-size:20px;cursor:pointer;touch-action:manipulation;padding:2px;color:var(--tx2)}
+.theme-bare:active{transform:scale(.88)}
 
 /* iOS SAFARI NOTICE */
 .ios-notice{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:var(--rs);padding:.7rem 1rem;margin-bottom:.8rem;font-size:12px;color:var(--am);display:none;align-items:center;gap:8px}
@@ -101,6 +102,8 @@ body::before{content:'';position:fixed;top:-30%;left:-20%;width:60%;height:60%;b
 
 /* FREE MODE CONTROLS */
 .free-controls{background:var(--sur);border:1px solid var(--brd);border-radius:var(--r);padding:1rem;margin-bottom:.8rem;display:none}
+.rep-pill{padding:5px 12px;border-radius:20px;border:1px solid var(--brd2);background:var(--sur2);color:var(--tx2);font-size:12px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .18s;touch-action:manipulation}
+.rep-pill.on{background:rgba(124,109,250,.15);color:var(--ac);border-color:rgba(124,109,250,.3)}
 .free-controls.show{display:block}
 .free-sec-title{font-size:11px;color:var(--tx3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
 .repeat-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
@@ -252,13 +255,13 @@ textarea.f-inp{resize:vertical;min-height:70px}
 
   <!-- HEADER -->
   <div class="hdr">
-    <div class="logo-row">
-      <div class="logo-ic">🎙</div>
-      <div class="logo-tx">SpeakPro</div>
+    <div>
+      <div class="logo-tx"><span class="logo-s">Speak</span><span class="logo-p">Pro</span></div>
+      <div class="logo-greet" id="logo-greet">مرحباً</div>
     </div>
     <div class="hdr-btns">
-      <button class="ic-btn add-fab" onclick="openModal()" title="إضافة نص">＋</button>
-      <button class="ic-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
+      <button class="ic-btn add-fab" onclick="playClick();openModal()" title="إضافة">＋</button>
+      <button class="theme-bare" id="theme-btn" onclick="toggleTheme()">🌙</button>
     </div>
   </div>
 
@@ -278,9 +281,9 @@ textarea.f-inp{resize:vertical;min-height:70px}
   <!-- LANG TABS — liquid -->
   <div class="lang-tabs" id="lang-tabs">
     <div class="lang-slider" id="lang-slider"></div>
-    <button class="lang-btn active" data-lang="en" onclick="setLang('en',this)">🇺🇸 EN</button>
-    <button class="lang-btn" data-lang="tr" onclick="setLang('tr',this)">🇹🇷 TR</button>
-    <button class="lang-btn" data-lang="my" onclick="setLang('my',this)">📝 نصوصي</button>
+    <button class="lang-btn active" data-lang="en" onclick="playClick();setLang('en',this)">🇺🇸 EN</button>
+    <button class="lang-btn" data-lang="tr" onclick="playClick();setLang('tr',this)">🇹🇷 TR</button>
+    <button class="lang-btn" data-lang="my" onclick="playClick();setLang('my',this)">📝 نصوصي</button>
   </div>
 
   <!-- PRACTICE PAGE -->
@@ -289,9 +292,9 @@ textarea.f-inp{resize:vertical;min-height:70px}
     <!-- Mode tabs — liquid -->
     <div class="mode-tabs" id="mode-tabs">
       <div class="mode-slider" id="mode-slider"></div>
-      <button class="mode-btn active" data-mode="normal" onclick="setMode('normal',this)">📖 تدريب</button>
-      <button class="mode-btn" data-mode="reveal" onclick="setMode('reveal',this)">🔍 كشف</button>
-      <button class="mode-btn" data-mode="free" onclick="setMode('free',this)">🎤 حر</button>
+      <button class="mode-btn active" data-mode="normal" onclick="playClick();setMode('normal',this)">📖 تدريب</button>
+      <button class="mode-btn" data-mode="reveal" onclick="playClick();setMode('reveal',this)">🔍 كشف</button>
+      <button class="mode-btn" data-mode="free" onclick="playClick();setMode('free',this)">🎤 حر</button>
     </div>
 
     <div id="mode-content">
@@ -301,14 +304,12 @@ textarea.f-inp{resize:vertical;min-height:70px}
       <div class="free-sec-title">إعدادات وضع الحر</div>
       <div class="repeat-row">
         <span class="rep-label">🔁 التكرار:</span>
-        <select class="rep-select" id="rep-count">
-          <option value="1">مرة واحدة</option>
-          <option value="2">مرتين</option>
-          <option value="3">3 مرات</option>
-          <option value="5">5 مرات</option>
-          <option value="10">10 مرات</option>
-          <option value="0">بلا نهاية ∞</option>
-        </select>
+        <div style="display:flex;gap:5px">
+          <button class="rep-pill on" data-v="1" onclick="setRepeat(this)">×1</button>
+          <button class="rep-pill" data-v="3" onclick="setRepeat(this)">×3</button>
+          <button class="rep-pill" data-v="10" onclick="setRepeat(this)">×10</button>
+          <button class="rep-pill" data-v="0" onclick="setRepeat(this)">∞</button>
+        </div>
       </div>
       <div class="free-sec-title" style="margin-top:8px">النص للاستماع (اختياري — اترك فارغاً للجملة الحالية)</div>
       <textarea class="sel-text-area" id="free-text" placeholder="اكتب أو الصق جملة محددة لتكرار الاستماع إليها..."></textarea>
@@ -356,8 +357,8 @@ textarea.f-inp{resize:vertical;min-height:70px}
     </div>
 
     <div class="ph-nav">
-      <button class="nav-btn" onclick="prevPhrase()">← السابقة</button>
-      <button class="nav-btn" onclick="nextPhrase()">التالية →</button>
+      <button class="nav-btn" onclick="playClick();prevPhrase()">← السابقة</button>
+      <button class="nav-btn" onclick="playClick();nextPhrase()">التالية →</button>
     </div>
 
     <!-- RESULT above record -->
@@ -502,7 +503,7 @@ textarea.f-inp{resize:vertical;min-height:70px}
 <nav class="bnav">
   <div class="bnav-pill">
     <!-- Practice -->
-    <button class="bnav-btn active" id="bn-practice" onclick="showPage('practice')">
+    <button class="bnav-btn active" id="bn-practice" onclick="playClick();showPage('practice')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
         <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
@@ -524,7 +525,7 @@ textarea.f-inp{resize:vertical;min-height:70px}
     </div>
 
     <!-- Stats -->
-    <button class="bnav-btn" id="bn-stats" onclick="showPage('stats')">
+    <button class="bnav-btn" id="bn-stats" onclick="playClick();showPage('stats')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <line x1="18" y1="20" x2="18" y2="10"/>
         <line x1="12" y1="20" x2="12" y2="4"/>
@@ -608,6 +609,12 @@ let myTexts=[],stats={sess:0,scores:[],err:{},ok:{},reps:{}};
 let wordPopTimer=null,audioCtx=null;
 let freePlayActive=false,freeRepDone=0,freeTotalRep=1,freeUtter=null;
 
+let repVal=1;
+function setRepeat(btn){
+  repVal=parseInt(btn.dataset.v);
+  document.querySelectorAll('.rep-pill').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
 /* ══════ INIT ══════ */
 try{myTexts=JSON.parse(localStorage.getItem('sp_my')||'[]')}catch(e){}
 try{const s=JSON.parse(localStorage.getItem('sp_stats')||'{}');
@@ -623,6 +630,16 @@ const isPWA=window.navigator.standalone||window.matchMedia('(display-mode: stand
 // Show iOS notice if on iOS and not Safari or if PWA
 if(isIOS&&(!isSafari||isPWA)){
   document.getElementById('ios-notice').classList.add('show');
+}
+
+/* ══════ GREETING ══════ */
+function setGreeting(){
+  var h=new Date().getHours();
+  var g=document.getElementById('logo-greet');if(!g)return;
+  if(h>=5&&h<12)g.textContent='صباح الخير ☀️';
+  else if(h>=12&&h<18)g.textContent='مساء الخير 🌤';
+  else if(h>=18&&h<22)g.textContent='مساء النور 🌙';
+  else g.textContent='ليلة طيبة ✨';
 }
 
 /* ══════ THEME ══════ */
@@ -737,46 +754,55 @@ function onRW(el,i,words){
   });
 }
 
-/* ══════ WORD TRANSLATION ══════ */
+/* ══════ WORD TRANSLATION + SPEECH ══════ */
 function showWordTranslation(word,wordIdx,words){
   const cleanWord=word.toLowerCase().replace(/[^a-zğışöüçа-я]/gi,'');
   const pop=document.getElementById('word-pop');
   document.getElementById('wp-word').textContent=word;
-  document.getElementById('wp-tr').textContent='جاري...';
+  document.getElementById('wp-tr').textContent='...';
   document.getElementById('wp-alts').textContent='';
   pop.classList.add('show');
   clearTimeout(wordPopTimer);
 
-  // Try offline dict first
+  // Speak the word (must cancel first, then short delay)
+  speechSynthesis.cancel();
+  setTimeout(()=>{
+    const u=new SpeechSynthesisUtterance(word);
+    u.lang=lang==='tr'?'tr-TR':'en-US';
+    u.rate=0.8;u.pitch=1;u.volume=1;
+    speechSynthesis.speak(u);
+  },100);
+
+  // Offline dict first
   const offlineTr=DICT[cleanWord];
   if(offlineTr){
     const parts=offlineTr.split('/');
     document.getElementById('wp-tr').textContent=parts[0];
-    if(parts.length>1)document.getElementById('wp-alts').textContent='المعاني: '+offlineTr;
-    else document.getElementById('wp-alts').textContent='';
-    wordPopTimer=setTimeout(()=>pop.classList.remove('show'),3500);
+    document.getElementById('wp-alts').textContent=parts.length>1?'أيضاً: '+parts.slice(1).join(' / '):'';
+    wordPopTimer=setTimeout(()=>pop.classList.remove('show'),4000);
     return;
   }
 
-  // Try online translation (MyMemory API - free, no key needed)
-  const sentence=(words||[cleanWord]).join(' ');
+  // Online translation
   const sl=lang==='tr'?'tr':'en';
-  fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanWord)}&langpair=${sl}|ar&de=speakpro`)
+  fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(cleanWord)+'&langpair='+sl+'|ar')
     .then(r=>r.json())
     .then(d=>{
-      const tr=(d.responseData?.translatedText||'').trim();
-      if(tr&&tr!==cleanWord&&!/[a-zA-Z]/.test(tr)){
-        document.getElementById('wp-tr').textContent=tr;
-        // Also show sentence context translation if available
-        const matches=d.matches||[];
-        const alts=[...new Set(matches.slice(0,3).map(m=>m.translation).filter(t=>t&&t!==tr))];
-        if(alts.length)document.getElementById('wp-alts').textContent='أيضاً: '+alts.join(' / ');
+      const raw=(d.responseData?.translatedText||'').trim();
+      const isAr=/[؀-ۿ]/.test(raw);
+      if(isAr&&raw!==cleanWord){
+        document.getElementById('wp-tr').textContent=raw;
+        const alts=[...new Set((d.matches||[])
+          .map(m=>(m.translation||'').trim())
+          .filter(t=>t&&t!==raw&&/[؀-ۿ]/.test(t))
+        )].slice(0,3);
+        document.getElementById('wp-alts').textContent=alts.length?'أيضاً: '+alts.join(' / '):'';
       }else{
         document.getElementById('wp-tr').textContent='—';
       }
     })
-    .catch(()=>{document.getElementById('wp-tr').textContent='(تحتاج إنترنت)'})
-    .finally(()=>{wordPopTimer=setTimeout(()=>pop.classList.remove('show'),4000)});
+    .catch(()=>{document.getElementById('wp-tr').textContent='(تحتاج إنترنت)';})
+    .finally(()=>{wordPopTimer=setTimeout(()=>pop.classList.remove('show'),5000);});
 }
 
 document.addEventListener('click',e=>{
@@ -838,7 +864,7 @@ function startFreePlay(){
   const customText=document.getElementById('free-text').value.trim();
   const textToPlay=customText||p?.text||'';
   if(!textToPlay)return;
-  const repVal=parseInt(document.getElementById('rep-count').value);
+  // repVal is set by pill buttons
   freeTotalRep=repVal===0?9999:repVal;
   freeRepDone=0;
   freePlayActive=true;
@@ -901,7 +927,34 @@ function startRec(){
   accFinal='';shouldRec=true;isAborting=false;isRec=true;
   stats.sess++;saveStats();clearResult();
   setRecUI(true);
+  startRecAudio(); // keep OS audio session alive → prevents Android beep
   launchRec();
+}
+
+/* AudioContext trick: keeps audio session alive on Android,
+   which prevents the OS from closing the mic and making beep sounds.
+   We play near-silent audio in a loop while recording. */
+let recAudioCtx=null,recGainNode=null,recOscNode=null;
+
+function startRecAudio(){
+  if(recAudioCtx)return;
+  try{
+    recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    recGainNode=recAudioCtx.createGain();
+    recGainNode.gain.value=0.00001; // virtually silent
+    recGainNode.connect(recAudioCtx.destination);
+    // Continuous sine at 200Hz — keeps audio session open
+    recOscNode=recAudioCtx.createOscillator();
+    recOscNode.frequency.value=200;
+    recOscNode.connect(recGainNode);
+    recOscNode.start();
+  }catch(e){}
+}
+
+function stopRecAudio(){
+  try{if(recOscNode)recOscNode.stop();}catch(e){}
+  try{if(recAudioCtx)recAudioCtx.close();}catch(e){}
+  recAudioCtx=null;recGainNode=null;recOscNode=null;
 }
 
 function launchRec(){
@@ -911,7 +964,7 @@ function launchRec(){
   recObj=r;
 
   r.lang=lang==='tr'?'tr-TR':'en-US';
-  r.continuous=true;      // stays open — no restart sound
+  r.continuous=true;
   r.interimResults=true;
   r.maxAlternatives=1;
 
@@ -932,26 +985,23 @@ function launchRec(){
   };
 
   r.onend=()=>{
-    // User stopped → just clean up UI
     if(isAborting||!shouldRec){
       isRec=false;isAborting=false;
       setRecUI(false);
+      stopRecAudio();
       return;
     }
-    // Unexpected end (Android kills mic after silence) → restart once, silently
-    if(shouldRec&&isRec){
-      setTimeout(launchRec,400);
-    }
+    // Android killed mic after silence → restart quietly
+    if(shouldRec&&isRec) setTimeout(launchRec,350);
   };
 
   r.onerror=ev=>{
     if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
       shouldRec=false;isRec=false;isAborting=false;
       setRecUI(false);
+      stopRecAudio();
       document.getElementById('no-sup').style.display='block';
     }
-    // no-speech = user is silent, continuous keeps going fine
-    // aborted = we called abort(), onend will handle
   };
 
   try{r.start();}
@@ -963,6 +1013,7 @@ function stopRec(){
   shouldRec=false;isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
   setRecUI(false);
+  stopRecAudio();
 }
 
 /* ══════ ANALYZE ══════ */
@@ -1168,9 +1219,27 @@ function renderPdfPage(){
     document.getElementById('pdf-page-lbl').textContent=
       'صفحة '+pdfPage+' من '+pdfDoc.numPages;
     page.getTextContent().then(function(tc){
-      pdfText=tc.items.map(function(i){return i.str;}).join(' ').replace(/ {2,}/g,' ').trim();
+      // Preserve line structure by detecting Y-position changes
+      var lines=[],lastY=null,curLine='';
+      tc.items.forEach(function(item){
+        var y=item.transform?Math.round(item.transform[5]):null;
+        if(lastY!==null&&y!==null&&Math.abs(y-lastY)>4){
+          if(curLine.trim())lines.push(curLine.trim());
+          curLine='';
+        }
+        curLine+=(curLine?' ':'')+item.str;
+        lastY=y;
+      });
+      if(curLine.trim())lines.push(curLine.trim());
+      pdfText=lines.filter(function(l){return l.length>0;}).join('\n');
       var tb=document.getElementById('pdf-text-box');
-      if(tb){tb.textContent=pdfText;tb.style.display=pdfText?'block':'none';}
+      if(tb){
+        tb.style.display=pdfText?'block':'none';
+        // Format nicely with line breaks
+        tb.innerHTML=pdfText.split('\n').map(function(line){
+          return '<div style="margin-bottom:4px">'+escHtml(line)+'</div>';
+        }).join('');
+      }
     });
   }).catch(function(e){console.warn('Page err:',e);});
 }
@@ -1218,7 +1287,27 @@ function pdfClose(){
   var gb=document.getElementById('pdf-modal-go');if(gb)gb.style.display='none';
 }
 
+/* ══════ CLICK SOUND ══════ */
+let _clickAC=null;
+function playClick(){
+  try{
+    if(!_clickAC)_clickAC=new(window.AudioContext||window.webkitAudioContext)();
+    var ctx=_clickAC;
+    [[523,0],[659,0.05]].forEach(function(pair){
+      var freq=pair[0],delay=pair[1];
+      var o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='sine';o.frequency.value=freq;
+      g.gain.setValueAtTime(0,ctx.currentTime+delay);
+      g.gain.linearRampToValueAtTime(0.05,ctx.currentTime+delay+0.012);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.2);
+      o.connect(g);g.connect(ctx.destination);
+      o.start(ctx.currentTime+delay);o.stop(ctx.currentTime+delay+0.22);
+    });
+  }catch(e){}
+}
+
 /* ══════ INIT ══════ */
+setGreeting();
 updatePhrase();
 renderMyTexts();
 </script>
