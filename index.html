@@ -899,13 +899,14 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING v13 — FINAL ══════
-   continuous=true + صحيح resultIndex tracking
-   كل نتيجة final لها index فريد — نحفظ ما عولجنا ولا نُضيف مرتين أبداً
+/* ══════ RECORDING v14 ══════
+   - interimResults=false  → لا تكرار أبداً، فقط نتائج نهائية مؤكدة
+   - continuous=true       → جلسة واحدة مستمرة
+   - AudioContext صامت    → يُخفّف صوت النظام عند فتح المايك
 */
 let isAborting=false;
 let recAudioCtx=null;
-let processedIndexes=new Set(); // indexes of final results already added
+let recSilentSrc=null;
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -918,12 +919,22 @@ function setRecUI(on){
   if(lbl){lbl.textContent=on?'جاري...':'تسجيل';lbl.classList.toggle('on',on);}
 }
 
-function getRecAudioCtx(){
-  if(!recAudioCtx){
-    try{recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
-  }
-  if(recAudioCtx&&recAudioCtx.state==='suspended')recAudioCtx.resume();
-  return recAudioCtx;
+/* تشغيل صوت صامت مستمر لتقليل صوت النظام */
+function startSilentAudio(){
+  try{
+    if(!recAudioCtx) recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(recAudioCtx.state==='suspended') recAudioCtx.resume();
+    const buf=recAudioCtx.createBuffer(1,recAudioCtx.sampleRate,recAudioCtx.sampleRate);
+    const src=recAudioCtx.createBufferSource();
+    src.buffer=buf; src.loop=true;
+    const g=recAudioCtx.createGain(); g.gain.value=0.001;
+    src.connect(g); g.connect(recAudioCtx.destination);
+    src.start(); recSilentSrc=src;
+  }catch(e){}
+}
+
+function stopSilentAudio(){
+  try{if(recSilentSrc){recSilentSrc.stop();recSilentSrc=null;}}catch(e){}
 }
 
 function toggleRecording(){
@@ -935,7 +946,6 @@ function toggleRecording(){
 
 function startRec(){
   accFinal='';
-  processedIndexes=new Set();
   shouldRec=true;
   isAborting=false;
   isRec=true;
@@ -943,54 +953,45 @@ function startRec(){
   saveStats();
   clearResult();
   setRecUI(true);
-  getRecAudioCtx();
+  startSilentAudio();
   launchRec();
 }
 
 function launchRec(){
-  if(!shouldRec||isAborting)return;
+  if(!shouldRec||isAborting) return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   let r;
   try{r=new SR();}catch(e){stopRec();return;}
   recObj=r;
   r.lang=lang==='tr'?'tr-TR':'en-US';
   r.continuous=true;
-  r.interimResults=true;
+  r.interimResults=false;  /* ← الحل الأساسي: فقط نتائج نهائية، لا تكرار */
   r.maxAlternatives=1;
 
   r.onresult=ev=>{
-    // Collect only NEW final results using their absolute index
-    let gotNewFinal=false;
-    let interimText='';
-    for(let i=0;i<ev.results.length;i++){
+    /* ev.resultIndex يحدد بداية النتائج الجديدة فقط */
+    for(let i=ev.resultIndex;i<ev.results.length;i++){
       if(ev.results[i].isFinal){
-        if(!processedIndexes.has(i)){
-          processedIndexes.add(i);
-          accFinal+=ev.results[i][0].transcript+' ';
-          gotNewFinal=true;
-        }
-      } else {
-        interimText+=ev.results[i][0].transcript;
+        accFinal+=ev.results[i][0].transcript+' ';
       }
     }
-    const shown=(accFinal+interimText).trim();
+    const shown=accFinal.trim();
     if(shown){
       document.getElementById('res-content').innerHTML=
         '<div class="res-tx" dir="ltr">"'+shown+'"</div>';
       const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
       const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-      if(gotNewFinal&&accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
+      if(mode!=='free') analyze(shown);
     }
   };
 
   r.onend=()=>{
     if(isAborting||!shouldRec){
-      isRec=false;isAborting=false;
+      isRec=false; isAborting=false;
       setRecUI(false);
+      stopSilentAudio();
       return;
     }
-    // SR ended (silence timeout) — restart keeping all state intact
-    // processedIndexes is preserved so no duplicate on restart
     setTimeout(launchRec,80);
   };
 
@@ -998,12 +999,13 @@ function launchRec(){
     if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
       shouldRec=false;isRec=false;isAborting=false;
       setRecUI(false);
+      stopSilentAudio();
       document.getElementById('no-sup').style.display='block';
     }
   };
 
   try{r.start();}
-  catch(e){if(shouldRec&&!isAborting)setTimeout(launchRec,150);}
+  catch(e){if(shouldRec&&!isAborting) setTimeout(launchRec,150);}
 }
 
 function stopRec(){
@@ -1011,6 +1013,7 @@ function stopRec(){
   shouldRec=false;
   isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
+  stopSilentAudio();
   setRecUI(false);
 }
 
