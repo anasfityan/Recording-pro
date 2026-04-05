@@ -899,26 +899,14 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING v11 — MIC-LOCK ARCHITECTURE ══════
-   ROOT CAUSE of beep/restart noise:
-   SpeechRecognition on Android/iOS closes the microphone after ~1-2s
-   of silence, triggering an OS-level sound. JS cannot suppress OS sounds.
-
-   SOLUTION — two-layer approach:
-   1. getUserMedia() — locks the microphone open PERMANENTLY (no OS beep)
-      The mic stream stays alive the whole session via a silent AudioContext
-      graph: micSource → gainNode(0) → destination. Gain=0 means NOTHING
-      is played to speakers, but the Web Audio pipeline keeps the mic alive.
-   2. SpeechRecognition — runs on top for text output. When it restarts
-      (due to no-speech timeout) the mic is already open so no OS sound.
-
-   This is the only reliable cross-platform solution.
+/* ══════ RECORDING v9 ══════
+   The Android system beep happens because Android forces the mic closed
+   after silence, even with continuous=true. We cannot prevent this.
+   Solution: play a masked noise burst at the moment of restart,
+   which covers the system beep sound completely.
 */
 let isAborting=false;
 let recAudioCtx=null;
-let micStream=null;       // MediaStream from getUserMedia — kept alive
-let micSourceNode=null;   // MediaStreamAudioSourceNode
-let micGainNode=null;     // GainNode at 0 — keeps mic alive silently
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -931,134 +919,108 @@ function setRecUI(on){
   if(lbl){lbl.textContent=on?'جاري...':'تسجيل';lbl.classList.toggle('on',on);}
 }
 
-/* Acquire mic and lock it open via Web Audio (gain=0, silent) */
-function acquireMic(){
-  return navigator.mediaDevices.getUserMedia({audio:true,video:false})
-    .then(function(stream){
-      micStream=stream;
-      try{
-        if(!recAudioCtx){
-          recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
-        }
-        if(recAudioCtx.state==='suspended') recAudioCtx.resume();
-        micSourceNode=recAudioCtx.createMediaStreamSource(stream);
-        micGainNode=recAudioCtx.createGain();
-        micGainNode.gain.value=0; // completely silent — nothing goes to speakers
-        micSourceNode.connect(micGainNode);
-        micGainNode.connect(recAudioCtx.destination);
-      }catch(e){}
-      return stream;
-    });
+function getRecAudioCtx(){
+  if(!recAudioCtx){
+    try{recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  }
+  if(recAudioCtx&&recAudioCtx.state==='suspended')recAudioCtx.resume();
+  return recAudioCtx;
 }
 
-/* Release mic fully */
-function releaseMic(){
-  try{if(micSourceNode)micSourceNode.disconnect();}catch(e){}
-  try{if(micGainNode)micGainNode.disconnect();}catch(e){}
-  if(micStream){
-    micStream.getTracks().forEach(function(t){t.stop();});
-    micStream=null;
-  }
-  micSourceNode=null;
-  micGainNode=null;
+/* Play a very short, very quiet white-noise burst.
+   This masks the Android system mic-open/close click sound.
+   Duration: 80ms, gain: 0.04 (barely audible but covers the click) */
+function maskBeep(){
+  try{
+    const ctx=getRecAudioCtx();
+    if(!ctx)return;
+    const bufSize=ctx.sampleRate*0.08; // 80ms
+    const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
+    const data=buf.getChannelData(0);
+    for(let i=0;i<bufSize;i++)data[i]=(Math.random()*2-1)*0.04;
+    const src=ctx.createBufferSource();
+    src.buffer=buf;
+    const g=ctx.createGain();
+    g.gain.setValueAtTime(0.04,ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.08);
+    src.connect(g);g.connect(ctx.destination);
+    src.start();
+  }catch(e){}
 }
 
 function toggleRecording(){
   const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
-  if(!hasSR){document.getElementById('no-sup').style.display='block';return;}
-  if(isRec){stopRec();return;}
+  if(!hasSR){document.getElementById('no-sup').style.display='block';return}
+  if(isRec){stopRec();return}
   startRec();
 }
 
 function startRec(){
-  accFinal='';shouldRec=true;isAborting=false;
+  accFinal='';shouldRec=true;isAborting=false;isRec=true;
   stats.sess++;saveStats();clearResult();
-
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    // Fallback: no getUserMedia — use old SR directly
-    isRec=true;
-    setRecUI(true);
-    launchRec();
-    return;
-  }
-
-  acquireMic()
-    .then(function(){
-      if(!shouldRec) return; // user cancelled before mic was ready
-      isRec=true;
-      setRecUI(true);
-      launchRec();
-    })
-    .catch(function(err){
-      // Permission denied or mic unavailable
-      shouldRec=false;
-      document.getElementById('no-sup').style.display='block';
-    });
+  setRecUI(true);
+  getRecAudioCtx(); // activate audio context on user gesture
+  launchRec();
 }
 
 function launchRec(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   let r;
-  try{r=new SR();}catch(e){setRecUI(false);isRec=false;releaseMic();return;}
+  try{r=new SR();}catch(e){setRecUI(false);isRec=false;return;}
   recObj=r;
   r.lang=lang==='tr'?'tr-TR':'en-US';
   r.continuous=true;
   r.interimResults=true;
   r.maxAlternatives=1;
 
-  r.onresult=function(ev){
-    var fc='',ic='';
-    for(var i=ev.resultIndex;i<ev.results.length;i++){
-      if(ev.results[i].isFinal) fc+=ev.results[i][0].transcript+' ';
+  r.onresult=ev=>{
+    let fc='',ic='';
+    for(let i=ev.resultIndex;i<ev.results.length;i++){
+      if(ev.results[i].isFinal)fc+=ev.results[i][0].transcript+' ';
       else ic+=ev.results[i][0].transcript;
     }
-    if(fc) accFinal+=fc;
-    var shown=(accFinal+ic).trim();
+    if(fc)accFinal+=fc;
+    const shown=(accFinal+ic).trim();
     if(shown){
       document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
-      var rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
-      var bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-      if(accFinal.trim()&&mode!=='free') analyze(accFinal.trim());
+      const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
+      const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
+      if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
     }
   };
 
-  r.onend=function(){
+  r.onend=()=>{
     if(isAborting||!shouldRec){
       isRec=false;isAborting=false;
       setRecUI(false);
-      releaseMic();
       return;
     }
-    // Mic is still locked open via Web Audio — restart SR silently, no OS beep
-    setTimeout(launchRec, 50);
+    // Android closed mic after silence — mask the system click then restart
+    maskBeep();
+    setTimeout(launchRec,90);
   };
 
-  r.onerror=function(ev){
+  r.onerror=ev=>{
     if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
       shouldRec=false;isRec=false;isAborting=false;
       setRecUI(false);
-      releaseMic();
       document.getElementById('no-sup').style.display='block';
     }
-    // no-speech / aborted / network — onend will restart
+    // no-speech / aborted: onend handles restart
   };
 
   try{r.start();}
-  catch(e){
-    // SR already started or other transient error — retry
-    if(shouldRec&&isRec) setTimeout(launchRec,150);
-  }
+  catch(e){if(shouldRec&&isRec){maskBeep();setTimeout(launchRec,150);}}
 }
 
 function stopRec(){
   isAborting=true;
   shouldRec=false;isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
-  releaseMic();
   setRecUI(false);
 }
 
-function stopRecAudio(){} // kept for compatibility
+function stopRecAudio(){}  // kept for compatibility
 /* ══════ ANALYZE ══════ */
 function analyze(spoken){
   const L=list();const target=(L[idx]||{}).text||'';if(!target)return;
