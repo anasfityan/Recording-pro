@@ -1,0 +1,8 @@
+{
+  "appId": "com.speakpro.app",
+  "appName": "SpeakPro",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
