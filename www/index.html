@@ -899,22 +899,11 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING — Capacitor Speech Recognition Plugin ══════ */
+/* ══════ RECORDING — إصلاح التكرار والصوت ══════ */
 let isAborting=false;
 let recAudioCtx=null;
+// نحتفظ بالنصوص النهائية المؤكدة في مصفوفة — كل جلسة SR مستقلة
 let finalTranscripts=[];
-let capSpeech=null; // Capacitor plugin reference
-let partialTimer=null;
-
-// تحميل الـ plugin عند البدء
-function initCapSpeech(){
-  if(capSpeech)return;
-  try{
-    if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition){
-      capSpeech=window.Capacitor.Plugins.SpeechRecognition;
-    }
-  }catch(e){}
-}
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -927,98 +916,64 @@ function setRecUI(on){
   if(lbl){lbl.textContent=on?'جاري...':'تسجيل';lbl.classList.toggle('on',on);}
 }
 
+function getRecAudioCtx(){
+  if(!recAudioCtx){
+    try{recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  }
+  if(recAudioCtx&&recAudioCtx.state==='suspended')recAudioCtx.resume();
+  return recAudioCtx;
+}
+
 function toggleRecording(){
+  const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
+  if(!hasSR){document.getElementById('no-sup').style.display='block';return;}
   if(isRec){stopRec();return;}
   startRec();
 }
 
 function startRec(){
-  initCapSpeech();
   accFinal='';
   finalTranscripts=[];
   shouldRec=true;isAborting=false;isRec=true;
   stats.sess++;saveStats();clearResult();
   setRecUI(true);
-
-  // إذا الـ plugin موجود (على الهاتف) استخدمه
-  if(capSpeech){
-    startCapRec();
-  } else {
-    // على المتصفح استخدم Web Speech API
-    launchRec();
-  }
+  const capPlugin=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
+  if(capPlugin){startCapRec(capPlugin);}else{launchRec();}
 }
 
-/* ══ Capacitor Plugin Recording ══ */
-function startCapRec(){
-  // طلب الإذن أولاً
-  capSpeech.requestPermissions().then(()=>{
-    return capSpeech.available();
-  }).then(result=>{
-    if(!result.available){
-      document.getElementById('no-sup').style.display='block';
-      stopRec();return;
-    }
-    // تسجيل مستمر مع partial results
-    capSpeech.addListener('partialResults',data=>{
-      if(!data||!data.matches||!data.matches.length)return;
-      const interim=data.matches[0];
-      const allFinal=finalTranscripts.join(' ');
-      const shown=(allFinal+' '+interim).trim();
-      if(shown){
-        document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
-        const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
-        const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-      }
-    });
-
-    capSpeech.start({
-      language: lang==='tr'?'tr-TR':'en-US',
-      maxResults: 1,
-      prompt: '',
-      partialResults: true,
-      popup: false,
-    }).then(result=>{
-      if(!shouldRec)return;
+function startCapRec(cap){
+  cap.requestPermissions().then(()=>cap.available()).then(res=>{
+    if(!res.available){document.getElementById('no-sup').style.display='block';stopRec();return;}
+    cap.start({language:lang==='tr'?'tr-TR':'en-US',maxResults:1,partialResults:false,popup:false})
+    .then(result=>{
       if(result&&result.matches&&result.matches.length){
         const text=result.matches[0].trim();
-        if(text&&!finalTranscripts.includes(text)){
+        if(text){
           finalTranscripts.push(text);
+          accFinal=finalTranscripts.join(' ');
+          document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+accFinal+'"</div>';
+          const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
+          const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
+          if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
         }
-        accFinal=finalTranscripts.join(' ');
-        document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+accFinal+'"</div>';
-        const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
-        const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-        if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
       }
-      // أعد التسجيل تلقائياً
-      if(shouldRec&&!isAborting){
-        setTimeout(startCapRec,200);
-      } else {
-        isRec=false;setRecUI(false);
-      }
-    }).catch(e=>{
-      if(shouldRec&&!isAborting)setTimeout(startCapRec,300);
-      else{isRec=false;setRecUI(false);}
-    });
-  }).catch(e=>{
-    document.getElementById('no-sup').style.display='block';
-    stopRec();
-  });
+      isRec=false;shouldRec=false;setRecUI(false);
+    }).catch(()=>{isRec=false;shouldRec=false;setRecUI(false);});
+  }).catch(()=>{document.getElementById('no-sup').style.display='block';stopRec();});
 }
 
-/* ══ Web Speech API (للمتصفح فقط) ══ */
 function launchRec(){
   if(!shouldRec||isAborting)return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){document.getElementById('no-sup').style.display='block';stopRec();return;}
   let r;
   try{r=new SR();}catch(e){stopRec();return;}
   recObj=r;
   r.lang=lang==='tr'?'tr-TR':'en-US';
-  r.continuous=false;
+  r.continuous=false; // false يمنع التكرار — كل جملة جلسة مستقلة
   r.interimResults=true;
   r.maxAlternatives=1;
+
+  // نص مؤقت لهذه الجلسة فقط
   let sessionFinal='';
 
   r.onresult=ev=>{
@@ -1026,11 +981,14 @@ function launchRec(){
     for(let i=ev.resultIndex;i<ev.results.length;i++){
       if(ev.results[i].isFinal){
         const t=ev.results[i][0].transcript.trim();
-        if(t&&t!==sessionFinal)sessionFinal=t;
+        if(t&&t!==sessionFinal){
+          sessionFinal=t;
+        }
       } else {
         interim+=ev.results[i][0].transcript;
       }
     }
+    // نعرض: النصوص المؤكدة السابقة + النهائي الحالي + المؤقت
     const allFinal=finalTranscripts.concat(sessionFinal?[sessionFinal]:[]).join(' ');
     const shown=(allFinal+(interim?' '+interim:'')).trim();
     if(shown){
@@ -1043,8 +1001,15 @@ function launchRec(){
   };
 
   r.onend=()=>{
-    if(sessionFinal&&!finalTranscripts.includes(sessionFinal))finalTranscripts.push(sessionFinal);
-    if(isAborting||!shouldRec){isRec=false;isAborting=false;setRecUI(false);return;}
+    // احفظ النص النهائي لهذه الجلسة قبل البدء بجلسة جديدة
+    if(sessionFinal&&!finalTranscripts.includes(sessionFinal)){
+      finalTranscripts.push(sessionFinal);
+    }
+    if(isAborting||!shouldRec){
+      isRec=false;isAborting=false;
+      setRecUI(false);
+      return;
+    }
     setTimeout(launchRec,90);
   };
 
@@ -1056,16 +1021,14 @@ function launchRec(){
     }
   };
 
-  try{r.start();}catch(e){if(shouldRec&&!isAborting)setTimeout(launchRec,150);}
+  try{r.start();}
+  catch(e){if(shouldRec&&!isAborting)setTimeout(launchRec,150);}
 }
 
 function stopRec(){
-  isAborting=true;
-  shouldRec=false;isRec=false;
-  if(capSpeech){
-    try{capSpeech.stop();}catch(e){}
-    try{capSpeech.removeAllListeners();}catch(e){}
-  }
+  isAborting=true;shouldRec=false;isRec=false;
+  const cap=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SpeechRecognition;
+  if(cap){try{cap.stop();}catch(e){}}
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
   setRecUI(false);
 }
