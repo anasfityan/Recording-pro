@@ -247,6 +247,20 @@ textarea.f-inp{resize:vertical;min-height:70px}
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
+
+/* PRONUNCIATION TRAINER */
+.pron-card{background:var(--sur);border:1px solid var(--brd);border-radius:var(--r);padding:1.2rem;margin-bottom:.8rem;display:none}
+.pron-card.show{display:block}
+.pron-title{font-size:11px;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.pron-words{display:flex;flex-wrap:wrap;gap:8px;direction:ltr;margin-bottom:12px}
+.pw{font-family:'Playfair Display',serif;font-size:20px;padding:4px 10px;border-radius:8px;transition:all .3s;cursor:default;line-height:1.4}
+.pw.pending{color:var(--rd);background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25)}
+.pw.correct{color:var(--gr);background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25)}
+.pw.current{color:var(--am);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);animation:pwPulse .9s infinite}
+@keyframes pwPulse{0%,100%{opacity:1}50%{opacity:.6}}
+.pron-hint{font-size:12px;color:var(--tx3);margin-bottom:10px;direction:ltr;text-align:left;font-style:italic}
+.pron-progress{font-size:12px;color:var(--tx2);text-align:center;margin-top:8px}
+.pron-reset{padding:5px 14px;border-radius:20px;border:1px solid var(--brd2);background:var(--sur2);color:var(--tx2);font-family:'Tajawal',sans-serif;font-size:11px;cursor:pointer;margin-top:8px;touch-action:manipulation}
 </style>
 </head>
 <body>
@@ -294,6 +308,7 @@ textarea.f-inp{resize:vertical;min-height:70px}
       <div class="mode-slider" id="mode-slider"></div>
       <button class="mode-btn active" data-mode="normal" onclick="playClick();setMode('normal',this)">📖 تدريب</button>
       <button class="mode-btn" data-mode="reveal" onclick="playClick();setMode('reveal',this)">🔍 كشف</button>
+      <button class="mode-btn" data-mode="pronounce" onclick="playClick();setMode('pronounce',this)">🎯 لفظ</button>
       <button class="mode-btn" data-mode="free" onclick="playClick();setMode('free',this)">🎤 حر</button>
     </div>
 
@@ -382,6 +397,15 @@ textarea.f-inp{resize:vertical;min-height:70px}
     </div>
 
     <div class="no-sup" id="no-sup">⚠️ للتسجيل الصوتي: افتح في Safari (iOS) أو Chrome (Android/PC)</div>
+
+    <!-- PRONUNCIATION TRAINER CARD -->
+    <div class="pron-card" id="pron-card">
+      <div class="pron-title">🎯 تدريب اللفظ — انطق كل كلمة باللون الأصفر</div>
+      <div class="pron-words" id="pron-words"></div>
+      <div class="pron-hint" id="pron-hint"></div>
+      <div class="pron-progress" id="pron-progress"></div>
+      <button class="pron-reset" onclick="resetPronTrainer()">↺ إعادة</button>
+    </div>
 
     </div><!-- /mode-content -->
   </div><!-- /practice -->
@@ -615,6 +639,63 @@ function setRepeat(btn){
   document.querySelectorAll('.rep-pill').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
 }
+
+/* ══════ PRONUNCIATION TRAINER ══════ */
+let pronWords=[],pronStatus=[],pronCurrent=0,pronRec=null,pronActive=false;
+
+function buildPronTrainer(){
+  const L=list();const p=L[idx];if(!p){return;}
+  const words=p.text.split(/\s+/).filter(Boolean);
+  pronWords=words;
+  pronStatus=words.map(()=>'pending');
+  pronCurrent=0;pronActive=false;
+  renderPronWords();
+  document.getElementById('pron-hint').textContent=p.ph||'';
+  document.getElementById('pron-progress').textContent='';
+}
+
+function renderPronWords(){
+  const c=document.getElementById('pron-words');
+  c.innerHTML=pronWords.map((w,i)=>{
+    const st=i===pronCurrent?'current':pronStatus[i];
+    return`<span class="pw ${st}">${w}</span>`;
+  }).join('');
+  const done=pronStatus.filter(s=>s==='correct').length;
+  const total=pronWords.length;
+  document.getElementById('pron-progress').textContent=
+    done===total&&total>0?'🎉 أحسنت! كل الكلمات صحيحة!':
+    done>0?`✅ ${done} من ${total} كلمة صحيحة`:'';
+}
+
+function resetPronTrainer(){
+  pronStatus=pronWords.map(()=>'pending');
+  pronCurrent=0;
+  renderPronWords();
+  document.getElementById('pron-progress').textContent='';
+}
+
+// عند التسجيل في وضع pronounce نحلل كل كلمة
+function analyzePronounce(spoken){
+  if(mode!=='pronounce'||!pronWords.length)return;
+  const norm=s=>s.toLowerCase().replace(/[^a-zğışöüçа-я0-9]/gi,'').trim();
+  const spokenWords=norm(spoken).split(/\s+/).filter(Boolean);
+  let changed=false;
+  pronWords.forEach((w,i)=>{
+    if(pronStatus[i]==='correct')return;
+    const nw=norm(w);
+    const matched=spokenWords.some(sw=>
+      sw===nw||
+      sw.startsWith(nw.slice(0,Math.max(3,nw.length-1)))||
+      nw.startsWith(sw.slice(0,Math.max(3,sw.length-1)))
+    );
+    if(matched){pronStatus[i]='correct';changed=true;}
+  });
+  // حرك المؤشر لأول كلمة غير صحيحة
+  const nextPending=pronStatus.findIndex(s=>s!=='correct');
+  pronCurrent=nextPending===-1?pronWords.length:nextPending;
+  if(changed)renderPronWords();
+}
+
 /* ══════ INIT ══════ */
 try{myTexts=JSON.parse(localStorage.getItem('sp_my')||'[]')}catch(e){}
 try{const s=JSON.parse(localStorage.getItem('sp_stats')||'{}');
@@ -698,7 +779,9 @@ function setMode(m,btn){
   btn.classList.add('active');
   updateSlider('mode-tabs','mode-slider',btn);
   document.getElementById('free-controls').classList.toggle('show',m==='free');
+  document.getElementById('pron-card').classList.toggle('show',m==='pronounce');
   updatePhrase();clearResult();
+  if(m==='pronounce')buildPronTrainer();
 }
 
 /* ══════ PHRASE ══════ */
@@ -729,6 +812,7 @@ function updatePhrase(){
   document.getElementById('nv').style.display=isRev?'none':'block';
   document.getElementById('rv').style.display=isRev?'block':'none';
   if(isRev)buildReveal(p.text||'');
+  if(mode==='pronounce')buildPronTrainer();
 }
 
 function buildReveal(txt){
@@ -977,6 +1061,7 @@ function launchRec(){
     }
     accFinal=allFinal;
     if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
+    if(accFinal.trim()&&mode==='pronounce')analyzePronounce(accFinal.trim());
   };
 
   r.onend=()=>{
@@ -1248,7 +1333,7 @@ function pdfSpeak(){
   speechSynthesis.cancel();
   setTimeout(function(){
     var u=new SpeechSynthesisUtterance(pdfText.slice(0,600));
-    u.lang='en-US';u.rate=ttsRate;u.pitch=1;u.volume=1;
+    u.lang=lang==='tr'?'tr-TR':'en-US';u.rate=ttsRate;u.pitch=1;u.volume=1;
     speechSynthesis.speak(u);
   },80);
 }
@@ -1285,6 +1370,63 @@ function pdfClose(){
 
 /* ══════ CLICK SOUND — معطل ══════ */
 function playClick(){}
+
+
+/* ══════ PRONUNCIATION TRAINER ══════ */
+let pronWords=[],pronStatus=[],pronCurrent=0,pronRec=null,pronActive=false;
+
+function buildPronTrainer(){
+  const L=list();const p=L[idx];if(!p){return;}
+  const words=p.text.split(/\s+/).filter(Boolean);
+  pronWords=words;
+  pronStatus=words.map(()=>'pending');
+  pronCurrent=0;pronActive=false;
+  renderPronWords();
+  document.getElementById('pron-hint').textContent=p.ph||'';
+  document.getElementById('pron-progress').textContent='';
+}
+
+function renderPronWords(){
+  const c=document.getElementById('pron-words');
+  c.innerHTML=pronWords.map((w,i)=>{
+    const st=i===pronCurrent?'current':pronStatus[i];
+    return`<span class="pw ${st}">${w}</span>`;
+  }).join('');
+  const done=pronStatus.filter(s=>s==='correct').length;
+  const total=pronWords.length;
+  document.getElementById('pron-progress').textContent=
+    done===total&&total>0?'🎉 أحسنت! كل الكلمات صحيحة!':
+    done>0?`✅ ${done} من ${total} كلمة صحيحة`:'';
+}
+
+function resetPronTrainer(){
+  pronStatus=pronWords.map(()=>'pending');
+  pronCurrent=0;
+  renderPronWords();
+  document.getElementById('pron-progress').textContent='';
+}
+
+// عند التسجيل في وضع pronounce نحلل كل كلمة
+function analyzePronounce(spoken){
+  if(mode!=='pronounce'||!pronWords.length)return;
+  const norm=s=>s.toLowerCase().replace(/[^a-zğışöüçа-я0-9]/gi,'').trim();
+  const spokenWords=norm(spoken).split(/\s+/).filter(Boolean);
+  let changed=false;
+  pronWords.forEach((w,i)=>{
+    if(pronStatus[i]==='correct')return;
+    const nw=norm(w);
+    const matched=spokenWords.some(sw=>
+      sw===nw||
+      sw.startsWith(nw.slice(0,Math.max(3,nw.length-1)))||
+      nw.startsWith(sw.slice(0,Math.max(3,sw.length-1)))
+    );
+    if(matched){pronStatus[i]='correct';changed=true;}
+  });
+  // حرك المؤشر لأول كلمة غير صحيحة
+  const nextPending=pronStatus.findIndex(s=>s!=='correct');
+  pronCurrent=nextPending===-1?pronWords.length:nextPending;
+  if(changed)renderPronWords();
+}
 
 /* ══════ INIT ══════ */
 setGreeting();
