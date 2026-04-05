@@ -841,18 +841,29 @@ function onRW(el,i,words){
 /* ══════ WORD TRANSLATION + SPEECH ══════ */
 /* ══ كشف اللغة التلقائي ══ */
 function detectLang(text){
-  if(!text)return lang==='my'?'en':lang;
-  // الأحرف التركية الخاصة
+  if(!text)return'en';
   if(/[ğışöüçĞIŞÖÜÇ]/.test(text))return'tr';
-  // إذا كان النص إنجليزي
   if(/^[a-zA-Z\s\.,!?'"-]+$/.test(text.trim()))return'en';
-  return lang==='my'?'en':lang;
+  return'en';
 }
 
 function getLangForTTS(){
-  if(lang!=='my')return lang;
+  // إذا اللغة محددة (en أو tr) استخدمها مباشرة
+  if(lang==='en')return'en';
+  if(lang==='tr')return'tr';
+  // في "نصوصي" اكشف من الجملة الكاملة
   const L=list();const p=L[idx];
-  return p?detectLang(p.text):'en';
+  if(!p)return'en';
+  return detectLang(p.text);
+}
+
+function getLangForWord(word){
+  // للكلمة المنقور عليها — نكشف من الجملة الكاملة لا من الكلمة وحدها
+  if(lang==='en')return'en';
+  if(lang==='tr')return'tr';
+  const L=list();const p=L[idx];
+  if(!p)return detectLang(word);
+  return detectLang(p.text);
 }
 
 function showWordTranslation(word,wordIdx,words){
@@ -865,8 +876,7 @@ function showWordTranslation(word,wordIdx,words){
 
   // ━━ الصوت — Google Translate Audio مباشرة ━━
   try{
-    const tl=lang==='tr'?'tr':'en';
-    // إزالة الصوت القديم إن وجد
+    const tl=getLangForWord(word)==='tr'?'tr':'en';
     const oldAudio=document.getElementById('gt-audio');
     if(oldAudio)oldAudio.remove();
     const audio=document.createElement('audio');
@@ -874,18 +884,17 @@ function showWordTranslation(word,wordIdx,words){
     audio.src='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl='+tl+'&client=gtx&q='+encodeURIComponent(word);
     document.body.appendChild(audio);
     audio.play().catch(()=>{
-      // fallback: Web Speech
       speechSynthesis.cancel();
       setTimeout(()=>{
         const u=new SpeechSynthesisUtterance(word);
-        u.lang=lang==='tr'?'tr-TR':'en-US';
+        u.lang=getLangForWord(word)==='tr'?'tr-TR':'en-US';
         u.rate=0.8;speechSynthesis.speak(u);
       },80);
     });
   }catch(e){}
 
   // ━━ الترجمة — Google Translate API ━━
-  if(getLangForTTS()==='en'){
+  if(getLangForWord(word)==='en'){
     const cw=word.toLowerCase().replace(/[^a-z]/g,'');
     const off=DICT[cw];
     if(off){
@@ -897,7 +906,7 @@ function showWordTranslation(word,wordIdx,words){
     }
   }
 
-  const sl=getLangForTTS()==='tr'?'tr':'en';
+  const sl=getLangForWord(word)==='tr'?'tr':'en';
   fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl='+sl+'&tl=ar&dt=t&q='+encodeURIComponent(word))
     .then(r=>r.json())
     .then(d=>{
