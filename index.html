@@ -840,7 +840,8 @@ function onRW(el,i,words){
 
 /* ══════ WORD TRANSLATION + SPEECH ══════ */
 function showWordTranslation(word,wordIdx,words){
-  const cleanWord=word.toLowerCase().replace(/[^a-zğışöüçа-я]/gi,'');
+  // حافظ على الأحرف التركية الخاصة في التنظيف
+  const cleanWord=word.toLowerCase().replace(/[^a-zğışöüçа-я0-9]/gi,'');
   const pop=document.getElementById('word-pop');
   document.getElementById('wp-word').textContent=word;
   document.getElementById('wp-tr').textContent='...';
@@ -848,45 +849,58 @@ function showWordTranslation(word,wordIdx,words){
   pop.classList.add('show');
   clearTimeout(wordPopTimer);
 
-  // Speak the word (must cancel first, then short delay)
+  // النطق بالصوت — باللغة الصحيحة
   speechSynthesis.cancel();
   setTimeout(()=>{
     const u=new SpeechSynthesisUtterance(word);
     u.lang=lang==='tr'?'tr-TR':'en-US';
-    u.rate=0.8;u.pitch=1;u.volume=1;
+    u.rate=0.75;u.pitch=1;u.volume=1;
+    // تأكد من وجود صوت تركي
+    if(lang==='tr'){
+      const voices=speechSynthesis.getVoices();
+      const trVoice=voices.find(v=>v.lang.startsWith('tr'));
+      if(trVoice)u.voice=trVoice;
+    }
     speechSynthesis.speak(u);
   },100);
 
-  // Offline dict first
-  const offlineTr=DICT[cleanWord];
-  if(offlineTr){
-    const parts=offlineTr.split('/');
-    document.getElementById('wp-tr').textContent=parts[0];
-    document.getElementById('wp-alts').textContent=parts.length>1?'أيضاً: '+parts.slice(1).join(' / '):'';
-    wordPopTimer=setTimeout(()=>pop.classList.remove('show'),4000);
-    return;
+  // قاموس إنجليزي محلي فقط للغة الإنجليزية
+  if(lang==='en'){
+    const offlineTr=DICT[cleanWord];
+    if(offlineTr){
+      const parts=offlineTr.split('/');
+      document.getElementById('wp-tr').textContent=parts[0];
+      document.getElementById('wp-alts').textContent=parts.length>1?'أيضاً: '+parts.slice(1).join(' / '):'';
+      wordPopTimer=setTimeout(()=>pop.classList.remove('show'),4000);
+      return;
+    }
   }
 
-  // Online translation
+  // ترجمة أونلاين — langpair صحيح حسب اللغة
   const sl=lang==='tr'?'tr':'en';
-  fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(cleanWord)+'&langpair='+sl+'|ar')
+  // استخدم الكلمة الأصلية للترجمة (مع الأحرف التركية الخاصة)
+  const wordToTranslate=word.replace(/[^a-zğışöüçA-ZĞIŞÖÜÇа-я\s]/g,'').trim();
+  fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(wordToTranslate)+'&langpair='+sl+'|ar')
     .then(r=>r.json())
     .then(d=>{
       const raw=(d.responseData?.translatedText||'').trim();
+      // تحقق أن الترجمة عربية حقيقية وليست نسخة من الكلمة الأصلية
       const isAr=/[؀-ۿ]/.test(raw);
-      if(isAr&&raw!==cleanWord){
+      const isSameAsInput=raw.toLowerCase()===wordToTranslate.toLowerCase();
+      if(isAr&&!isSameAsInput&&raw.length>0){
         document.getElementById('wp-tr').textContent=raw;
         const alts=[...new Set((d.matches||[])
           .map(m=>(m.translation||'').trim())
           .filter(t=>t&&t!==raw&&/[؀-ۿ]/.test(t))
-        )].slice(0,3);
+        )].slice(0,2);
         document.getElementById('wp-alts').textContent=alts.length?'أيضاً: '+alts.join(' / '):'';
       }else{
-        document.getElementById('wp-tr').textContent='—';
+        // إذا فشلت الترجمة أظهر رسالة واضحة
+        document.getElementById('wp-tr').textContent=lang==='tr'?'(لا ترجمة متاحة)':'—';
       }
     })
     .catch(()=>{document.getElementById('wp-tr').textContent='(تحتاج إنترنت)';})
-    .finally(()=>{wordPopTimer=setTimeout(()=>pop.classList.remove('show'),5000);});
+    .finally(()=>{wordPopTimer=setTimeout(()=>pop.classList.remove('show'),6000);});
 }
 
 document.addEventListener('click',e=>{
