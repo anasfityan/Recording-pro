@@ -268,7 +268,7 @@ textarea.f-inp{resize:vertical;min-height:70px}
   <!-- iOS NOTICE -->
   <div class="ios-notice" id="ios-notice">
     <span>⚠️</span>
-    <span>التسجيل الصوتي يعمل في <strong>Safari</strong> على iPhone وiPad — Chrome وFirefox على iOS لا يدعمان التسجيل.</span>
+    <span>التسجيل الصوتي يعمل فقط في <strong>Safari</strong> على iPhone وiPad — افتح التطبيق من Safari.</span>
   </div>
 
   <!-- INSTALL BANNER -->
@@ -622,19 +622,13 @@ try{const s=JSON.parse(localStorage.getItem('sp_stats')||'{}');
   stats.err=s.err||{};stats.ok=s.ok||{};stats.reps=s.reps||{}}catch(e){}
 DB.my=myTexts;
 
-/* Detect iOS / iPadOS */
+/* Detect iOS */
 const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const isPWA=window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
 
-// SpeechRecognition on iOS/iPadOS:
-// ✅ Works: Safari browser + Safari PWA (iOS 16.4+)
-// ❌ Doesn't work: Chrome/Firefox on iOS (SR is blocked by Apple)
-// Only show warning if on iOS AND using a non-Safari browser (not PWA)
-const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
-if(isIOS&&!hasSR){
-  document.getElementById('ios-notice').classList.add('show');
-}else if(isIOS&&!isSafari&&!isPWA){
+// Show iOS notice if on iOS and not Safari or if PWA
+if(isIOS&&(!isSafari||isPWA)){
   document.getElementById('ios-notice').classList.add('show');
 }
 
@@ -905,22 +899,26 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING v10 ══════
-   ROOT CAUSE: Android & iOS WebKit close the mic after ~1–2s of silence
-   even with continuous=true, producing a system-level "beep/click" sound
-   that we cannot suppress from JS.
+/* ══════ RECORDING v11 — MIC-LOCK ARCHITECTURE ══════
+   ROOT CAUSE of beep/restart noise:
+   SpeechRecognition on Android/iOS closes the microphone after ~1-2s
+   of silence, triggering an OS-level sound. JS cannot suppress OS sounds.
 
-   SOLUTION — Silent Continuous Audio Stream:
-   While recording is active we run a looping BufferSource of pure zeros
-   (gain=0, completely inaudible) through AudioContext. This keeps the
-   audio subsystem "busy" and prevents the OS from thinking audio has
-   stopped, which is what triggers the mic-close sound.
-   We also removed maskBeep() — it was covering the symptom, not the cause.
+   SOLUTION — two-layer approach:
+   1. getUserMedia() — locks the microphone open PERMANENTLY (no OS beep)
+      The mic stream stays alive the whole session via a silent AudioContext
+      graph: micSource → gainNode(0) → destination. Gain=0 means NOTHING
+      is played to speakers, but the Web Audio pipeline keeps the mic alive.
+   2. SpeechRecognition — runs on top for text output. When it restarts
+      (due to no-speech timeout) the mic is already open so no OS sound.
+
+   This is the only reliable cross-platform solution.
 */
 let isAborting=false;
 let recAudioCtx=null;
-let _silentSrc=null;   // looping silent buffer — keeps audio engine alive
-let _silentGain=null;
+let micStream=null;       // MediaStream from getUserMedia — kept alive
+let micSourceNode=null;   // MediaStreamAudioSourceNode
+let micGainNode=null;     // GainNode at 0 — keeps mic alive silently
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -933,123 +931,134 @@ function setRecUI(on){
   if(lbl){lbl.textContent=on?'جاري...':'تسجيل';lbl.classList.toggle('on',on);}
 }
 
-function getRecAudioCtx(){
-  if(!recAudioCtx){
-    try{recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
-  }
-  if(recAudioCtx&&recAudioCtx.state==='suspended'){
-    recAudioCtx.resume().catch(()=>{});
-  }
-  return recAudioCtx;
+/* Acquire mic and lock it open via Web Audio (gain=0, silent) */
+function acquireMic(){
+  return navigator.mediaDevices.getUserMedia({audio:true,video:false})
+    .then(function(stream){
+      micStream=stream;
+      try{
+        if(!recAudioCtx){
+          recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+        }
+        if(recAudioCtx.state==='suspended') recAudioCtx.resume();
+        micSourceNode=recAudioCtx.createMediaStreamSource(stream);
+        micGainNode=recAudioCtx.createGain();
+        micGainNode.gain.value=0; // completely silent — nothing goes to speakers
+        micSourceNode.connect(micGainNode);
+        micGainNode.connect(recAudioCtx.destination);
+      }catch(e){}
+      return stream;
+    });
 }
 
-/* Start a looping silent audio node — keeps audio engine alive,
-   prevents OS from triggering mic-open/close beep on Android/iOS */
-function startSilentStream(){
-  stopSilentStream();
-  try{
-    const ctx=getRecAudioCtx();
-    if(!ctx)return;
-    // 0.5-second buffer of pure silence (all zeros)
-    const buf=ctx.createBuffer(1,Math.floor(ctx.sampleRate*0.5),ctx.sampleRate);
-    // buf.getChannelData(0) is already all zeros — no fill needed
-    const src=ctx.createBufferSource();
-    src.buffer=buf;
-    src.loop=true; // loops forever until we stop it
-    const g=ctx.createGain();
-    g.gain.value=0; // completely silent — zero output to speakers
-    src.connect(g);
-    g.connect(ctx.destination);
-    src.start();
-    _silentSrc=src;
-    _silentGain=g;
-  }catch(e){}
-}
-
-function stopSilentStream(){
-  try{if(_silentSrc){_silentSrc.stop();_silentSrc.disconnect();}}catch(e){}
-  try{if(_silentGain)_silentGain.disconnect();}catch(e){}
-  _silentSrc=null;_silentGain=null;
+/* Release mic fully */
+function releaseMic(){
+  try{if(micSourceNode)micSourceNode.disconnect();}catch(e){}
+  try{if(micGainNode)micGainNode.disconnect();}catch(e){}
+  if(micStream){
+    micStream.getTracks().forEach(function(t){t.stop();});
+    micStream=null;
+  }
+  micSourceNode=null;
+  micGainNode=null;
 }
 
 function toggleRecording(){
   const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
-  if(!hasSR){document.getElementById('no-sup').style.display='block';return}
-  if(isRec){stopRec();return}
+  if(!hasSR){document.getElementById('no-sup').style.display='block';return;}
+  if(isRec){stopRec();return;}
   startRec();
 }
 
 function startRec(){
-  accFinal='';shouldRec=true;isAborting=false;isRec=true;
+  accFinal='';shouldRec=true;isAborting=false;
   stats.sess++;saveStats();clearResult();
-  setRecUI(true);
-  // Must call on user gesture — activates AudioContext & starts silent stream
-  getRecAudioCtx();
-  startSilentStream();
-  launchRec();
+
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    // Fallback: no getUserMedia — use old SR directly
+    isRec=true;
+    setRecUI(true);
+    launchRec();
+    return;
+  }
+
+  acquireMic()
+    .then(function(){
+      if(!shouldRec) return; // user cancelled before mic was ready
+      isRec=true;
+      setRecUI(true);
+      launchRec();
+    })
+    .catch(function(err){
+      // Permission denied or mic unavailable
+      shouldRec=false;
+      document.getElementById('no-sup').style.display='block';
+    });
 }
 
 function launchRec(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   let r;
-  try{r=new SR();}catch(e){setRecUI(false);isRec=false;stopSilentStream();return;}
+  try{r=new SR();}catch(e){setRecUI(false);isRec=false;releaseMic();return;}
   recObj=r;
   r.lang=lang==='tr'?'tr-TR':'en-US';
   r.continuous=true;
   r.interimResults=true;
   r.maxAlternatives=1;
 
-  r.onresult=ev=>{
-    let fc='',ic='';
-    for(let i=ev.resultIndex;i<ev.results.length;i++){
-      if(ev.results[i].isFinal)fc+=ev.results[i][0].transcript+' ';
+  r.onresult=function(ev){
+    var fc='',ic='';
+    for(var i=ev.resultIndex;i<ev.results.length;i++){
+      if(ev.results[i].isFinal) fc+=ev.results[i][0].transcript+' ';
       else ic+=ev.results[i][0].transcript;
     }
-    if(fc)accFinal+=fc;
-    const shown=(accFinal+ic).trim();
+    if(fc) accFinal+=fc;
+    var shown=(accFinal+ic).trim();
     if(shown){
       document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
-      const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
-      const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-      if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
+      var rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
+      var bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
+      if(accFinal.trim()&&mode!=='free') analyze(accFinal.trim());
     }
   };
 
-  r.onend=()=>{
+  r.onend=function(){
     if(isAborting||!shouldRec){
       isRec=false;isAborting=false;
       setRecUI(false);
-      stopSilentStream();
+      releaseMic();
       return;
     }
-    // OS closed mic after silence — restart immediately, no beep expected
-    // because silent stream keeps audio engine alive
-    setTimeout(launchRec,80);
+    // Mic is still locked open via Web Audio — restart SR silently, no OS beep
+    setTimeout(launchRec, 50);
   };
 
-  r.onerror=ev=>{
+  r.onerror=function(ev){
     if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
       shouldRec=false;isRec=false;isAborting=false;
       setRecUI(false);
-      stopSilentStream();
+      releaseMic();
       document.getElementById('no-sup').style.display='block';
     }
-    // no-speech / aborted / network: onend handles restart
+    // no-speech / aborted / network — onend will restart
   };
 
   try{r.start();}
-  catch(e){if(shouldRec&&isRec){setTimeout(launchRec,150);}}
+  catch(e){
+    // SR already started or other transient error — retry
+    if(shouldRec&&isRec) setTimeout(launchRec,150);
+  }
 }
 
 function stopRec(){
   isAborting=true;
   shouldRec=false;isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
-  stopSilentStream();
+  releaseMic();
   setRecUI(false);
 }
 
-function stopRecAudio(){}  // kept for compatibility
+function stopRecAudio(){} // kept for compatibility
 /* ══════ ANALYZE ══════ */
 function analyze(spoken){
   const L=list();const target=(L[idx]||{}).text||'';if(!target)return;
