@@ -1372,62 +1372,6 @@ function pdfClose(){
 function playClick(){}
 
 
-/* ══════ PRONUNCIATION TRAINER ══════ */
-let pronWords=[],pronStatus=[],pronCurrent=0,pronRec=null,pronActive=false;
-
-function buildPronTrainer(){
-  const L=list();const p=L[idx];if(!p){return;}
-  const words=p.text.split(/\s+/).filter(Boolean);
-  pronWords=words;
-  pronStatus=words.map(()=>'pending');
-  pronCurrent=0;pronActive=false;
-  renderPronWords();
-  document.getElementById('pron-hint').textContent=p.ph||'';
-  document.getElementById('pron-progress').textContent='';
-}
-
-function renderPronWords(){
-  const c=document.getElementById('pron-words');
-  c.innerHTML=pronWords.map((w,i)=>{
-    const st=i===pronCurrent?'current':pronStatus[i];
-    return`<span class="pw ${st}">${w}</span>`;
-  }).join('');
-  const done=pronStatus.filter(s=>s==='correct').length;
-  const total=pronWords.length;
-  document.getElementById('pron-progress').textContent=
-    done===total&&total>0?'🎉 أحسنت! كل الكلمات صحيحة!':
-    done>0?`✅ ${done} من ${total} كلمة صحيحة`:'';
-}
-
-function resetPronTrainer(){
-  pronStatus=pronWords.map(()=>'pending');
-  pronCurrent=0;
-  renderPronWords();
-  document.getElementById('pron-progress').textContent='';
-}
-
-// عند التسجيل في وضع pronounce نحلل كل كلمة
-function analyzePronounce(spoken){
-  if(mode!=='pronounce'||!pronWords.length)return;
-  const norm=s=>s.toLowerCase().replace(/[^a-zğışöüçа-я0-9]/gi,'').trim();
-  const spokenWords=norm(spoken).split(/\s+/).filter(Boolean);
-  let changed=false;
-  pronWords.forEach((w,i)=>{
-    if(pronStatus[i]==='correct')return;
-    const nw=norm(w);
-    const matched=spokenWords.some(sw=>
-      sw===nw||
-      sw.startsWith(nw.slice(0,Math.max(3,nw.length-1)))||
-      nw.startsWith(sw.slice(0,Math.max(3,sw.length-1)))
-    );
-    if(matched){pronStatus[i]='correct';changed=true;}
-  });
-  // حرك المؤشر لأول كلمة غير صحيحة
-  const nextPending=pronStatus.findIndex(s=>s!=='correct');
-  pronCurrent=nextPending===-1?pronWords.length:nextPending;
-  if(changed)renderPronWords();
-}
-
 /* ══════ INIT ══════ */
 setGreeting();
 updatePhrase();
