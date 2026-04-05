@@ -899,14 +899,10 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING v14 ══════
-   - interimResults=false  → لا تكرار أبداً، فقط نتائج نهائية مؤكدة
-   - continuous=true       → جلسة واحدة مستمرة
-   - AudioContext صامت    → يُخفّف صوت النظام عند فتح المايك
-*/
+/* ══════ RECORDING v14 — إصلاح نهائي للتكرار ══════ */
 let isAborting=false;
 let recAudioCtx=null;
-let recSilentSrc=null;
+let globalResultIndex=0; // يزيد عبر كل جلسات SR — يمنع إعادة معالجة نتائج قديمة
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -919,22 +915,12 @@ function setRecUI(on){
   if(lbl){lbl.textContent=on?'جاري...':'تسجيل';lbl.classList.toggle('on',on);}
 }
 
-/* تشغيل صوت صامت مستمر لتقليل صوت النظام */
-function startSilentAudio(){
-  try{
-    if(!recAudioCtx) recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(recAudioCtx.state==='suspended') recAudioCtx.resume();
-    const buf=recAudioCtx.createBuffer(1,recAudioCtx.sampleRate,recAudioCtx.sampleRate);
-    const src=recAudioCtx.createBufferSource();
-    src.buffer=buf; src.loop=true;
-    const g=recAudioCtx.createGain(); g.gain.value=0.001;
-    src.connect(g); g.connect(recAudioCtx.destination);
-    src.start(); recSilentSrc=src;
-  }catch(e){}
-}
-
-function stopSilentAudio(){
-  try{if(recSilentSrc){recSilentSrc.stop();recSilentSrc=null;}}catch(e){}
+function getRecAudioCtx(){
+  if(!recAudioCtx){
+    try{recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  }
+  if(recAudioCtx&&recAudioCtx.state==='suspended')recAudioCtx.resume();
+  return recAudioCtx;
 }
 
 function toggleRecording(){
@@ -946,74 +932,73 @@ function toggleRecording(){
 
 function startRec(){
   accFinal='';
-  shouldRec=true;
-  isAborting=false;
-  isRec=true;
-  stats.sess++;
-  saveStats();
-  clearResult();
+  globalResultIndex=0;
+  shouldRec=true;isAborting=false;isRec=true;
+  stats.sess++;saveStats();clearResult();
   setRecUI(true);
-  startSilentAudio();
+  getRecAudioCtx();
   launchRec();
 }
 
 function launchRec(){
-  if(!shouldRec||isAborting) return;
+  if(!shouldRec||isAborting)return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   let r;
   try{r=new SR();}catch(e){stopRec();return;}
   recObj=r;
   r.lang=lang==='tr'?'tr-TR':'en-US';
   r.continuous=true;
-  r.interimResults=false;  /* ← الحل الأساسي: فقط نتائج نهائية، لا تكرار */
+  r.interimResults=true;
   r.maxAlternatives=1;
 
   r.onresult=ev=>{
-    /* ev.resultIndex يحدد بداية النتائج الجديدة فقط */
+    let ic='';
+    // فقط النتائج الجديدة — من globalResultIndex وليس من الصفر
     for(let i=ev.resultIndex;i<ev.results.length;i++){
       if(ev.results[i].isFinal){
-        accFinal+=ev.results[i][0].transcript+' ';
+        if(i>=globalResultIndex){
+          accFinal+=ev.results[i][0].transcript+' ';
+          globalResultIndex=i+1; // لن نعالج هذا الـ index مرة ثانية أبداً
+        }
+      } else {
+        ic+=ev.results[i][0].transcript;
       }
     }
-    const shown=accFinal.trim();
+    const shown=(accFinal+ic).trim();
     if(shown){
-      document.getElementById('res-content').innerHTML=
-        '<div class="res-tx" dir="ltr">"'+shown+'"</div>';
+      document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
       const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
       const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-      if(mode!=='free') analyze(shown);
+      if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
     }
   };
 
   r.onend=()=>{
     if(isAborting||!shouldRec){
-      isRec=false; isAborting=false;
+      isRec=false;isAborting=false;
       setRecUI(false);
-      stopSilentAudio();
       return;
     }
-    setTimeout(launchRec,80);
+    // عند إعادة التشغيل globalResultIndex محفوظ — لا تكرار
+    setTimeout(launchRec,90);
   };
 
   r.onerror=ev=>{
     if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
       shouldRec=false;isRec=false;isAborting=false;
       setRecUI(false);
-      stopSilentAudio();
       document.getElementById('no-sup').style.display='block';
     }
   };
 
   try{r.start();}
-  catch(e){if(shouldRec&&!isAborting) setTimeout(launchRec,150);}
+  catch(e){if(shouldRec&&!isAborting)setTimeout(launchRec,150);}
 }
 
 function stopRec(){
   isAborting=true;
-  shouldRec=false;
-  isRec=false;
+  shouldRec=false;isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
-  stopSilentAudio();
   setRecUI(false);
 }
 
