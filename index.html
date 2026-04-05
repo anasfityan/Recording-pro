@@ -268,7 +268,7 @@ textarea.f-inp{resize:vertical;min-height:70px}
   <!-- iOS NOTICE -->
   <div class="ios-notice" id="ios-notice">
     <span>⚠️</span>
-    <span>التسجيل الصوتي يعمل فقط في <strong>Safari</strong> على iPhone وiPad — افتح التطبيق من Safari.</span>
+    <span>التسجيل الصوتي يعمل في <strong>Safari</strong> على iPhone وiPad — Chrome وFirefox على iOS لا يدعمان التسجيل.</span>
   </div>
 
   <!-- INSTALL BANNER -->
@@ -622,13 +622,19 @@ try{const s=JSON.parse(localStorage.getItem('sp_stats')||'{}');
   stats.err=s.err||{};stats.ok=s.ok||{};stats.reps=s.reps||{}}catch(e){}
 DB.my=myTexts;
 
-/* Detect iOS */
+/* Detect iOS / iPadOS */
 const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const isPWA=window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
 
-// Show iOS notice if on iOS and not Safari or if PWA
-if(isIOS&&(!isSafari||isPWA)){
+// SpeechRecognition on iOS/iPadOS:
+// ✅ Works: Safari browser + Safari PWA (iOS 16.4+)
+// ❌ Doesn't work: Chrome/Firefox on iOS (SR is blocked by Apple)
+// Only show warning if on iOS AND using a non-Safari browser (not PWA)
+const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
+if(isIOS&&!hasSR){
+  document.getElementById('ios-notice').classList.add('show');
+}else if(isIOS&&!isSafari&&!isPWA){
   document.getElementById('ios-notice').classList.add('show');
 }
 
@@ -899,14 +905,22 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING v9 ══════
-   The Android system beep happens because Android forces the mic closed
-   after silence, even with continuous=true. We cannot prevent this.
-   Solution: play a masked noise burst at the moment of restart,
-   which covers the system beep sound completely.
+/* ══════ RECORDING v10 ══════
+   ROOT CAUSE: Android & iOS WebKit close the mic after ~1–2s of silence
+   even with continuous=true, producing a system-level "beep/click" sound
+   that we cannot suppress from JS.
+
+   SOLUTION — Silent Continuous Audio Stream:
+   While recording is active we run a looping BufferSource of pure zeros
+   (gain=0, completely inaudible) through AudioContext. This keeps the
+   audio subsystem "busy" and prevents the OS from thinking audio has
+   stopped, which is what triggers the mic-close sound.
+   We also removed maskBeep() — it was covering the symptom, not the cause.
 */
 let isAborting=false;
 let recAudioCtx=null;
+let _silentSrc=null;   // looping silent buffer — keeps audio engine alive
+let _silentGain=null;
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -923,29 +937,39 @@ function getRecAudioCtx(){
   if(!recAudioCtx){
     try{recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
   }
-  if(recAudioCtx&&recAudioCtx.state==='suspended')recAudioCtx.resume();
+  if(recAudioCtx&&recAudioCtx.state==='suspended'){
+    recAudioCtx.resume().catch(()=>{});
+  }
   return recAudioCtx;
 }
 
-/* Play a very short, very quiet white-noise burst.
-   This masks the Android system mic-open/close click sound.
-   Duration: 80ms, gain: 0.04 (barely audible but covers the click) */
-function maskBeep(){
+/* Start a looping silent audio node — keeps audio engine alive,
+   prevents OS from triggering mic-open/close beep on Android/iOS */
+function startSilentStream(){
+  stopSilentStream();
   try{
     const ctx=getRecAudioCtx();
     if(!ctx)return;
-    const bufSize=ctx.sampleRate*0.08; // 80ms
-    const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
-    const data=buf.getChannelData(0);
-    for(let i=0;i<bufSize;i++)data[i]=(Math.random()*2-1)*0.04;
+    // 0.5-second buffer of pure silence (all zeros)
+    const buf=ctx.createBuffer(1,Math.floor(ctx.sampleRate*0.5),ctx.sampleRate);
+    // buf.getChannelData(0) is already all zeros — no fill needed
     const src=ctx.createBufferSource();
     src.buffer=buf;
+    src.loop=true; // loops forever until we stop it
     const g=ctx.createGain();
-    g.gain.setValueAtTime(0.04,ctx.currentTime);
-    g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.08);
-    src.connect(g);g.connect(ctx.destination);
+    g.gain.value=0; // completely silent — zero output to speakers
+    src.connect(g);
+    g.connect(ctx.destination);
     src.start();
+    _silentSrc=src;
+    _silentGain=g;
   }catch(e){}
+}
+
+function stopSilentStream(){
+  try{if(_silentSrc){_silentSrc.stop();_silentSrc.disconnect();}}catch(e){}
+  try{if(_silentGain)_silentGain.disconnect();}catch(e){}
+  _silentSrc=null;_silentGain=null;
 }
 
 function toggleRecording(){
@@ -959,14 +983,16 @@ function startRec(){
   accFinal='';shouldRec=true;isAborting=false;isRec=true;
   stats.sess++;saveStats();clearResult();
   setRecUI(true);
-  getRecAudioCtx(); // activate audio context on user gesture
+  // Must call on user gesture — activates AudioContext & starts silent stream
+  getRecAudioCtx();
+  startSilentStream();
   launchRec();
 }
 
 function launchRec(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   let r;
-  try{r=new SR();}catch(e){setRecUI(false);isRec=false;return;}
+  try{r=new SR();}catch(e){setRecUI(false);isRec=false;stopSilentStream();return;}
   recObj=r;
   r.lang=lang==='tr'?'tr-TR':'en-US';
   r.continuous=true;
@@ -993,30 +1019,33 @@ function launchRec(){
     if(isAborting||!shouldRec){
       isRec=false;isAborting=false;
       setRecUI(false);
+      stopSilentStream();
       return;
     }
-    // Android closed mic after silence — mask the system click then restart
-    maskBeep();
-    setTimeout(launchRec,90);
+    // OS closed mic after silence — restart immediately, no beep expected
+    // because silent stream keeps audio engine alive
+    setTimeout(launchRec,80);
   };
 
   r.onerror=ev=>{
     if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
       shouldRec=false;isRec=false;isAborting=false;
       setRecUI(false);
+      stopSilentStream();
       document.getElementById('no-sup').style.display='block';
     }
-    // no-speech / aborted: onend handles restart
+    // no-speech / aborted / network: onend handles restart
   };
 
   try{r.start();}
-  catch(e){if(shouldRec&&isRec){maskBeep();setTimeout(launchRec,150);}}
+  catch(e){if(shouldRec&&isRec){setTimeout(launchRec,150);}}
 }
 
 function stopRec(){
   isAborting=true;
   shouldRec=false;isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
+  stopSilentStream();
   setRecUI(false);
 }
 
