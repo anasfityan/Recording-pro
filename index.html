@@ -973,19 +973,27 @@ function launchRec(){
   r.interimResults=true;
   r.maxAlternatives=1;
 
+  // Snapshot of accFinal at the START of this SR instance.
+  // When SR restarts after silence it fires onresult from index 0 again —
+  // we add only NEW text on top of this snapshot to prevent duplicates.
+  const baseText=accFinal;
+  let sessionFinal=''; // final text accumulated within THIS SR instance only
+
   r.onresult=ev=>{
     let fc='',ic='';
     for(let i=ev.resultIndex;i<ev.results.length;i++){
       if(ev.results[i].isFinal)fc+=ev.results[i][0].transcript+' ';
       else ic+=ev.results[i][0].transcript;
     }
-    if(fc)accFinal+=fc;
+    const hadNewFinal=fc.trim().length>0;
+    if(fc)sessionFinal+=fc;
+    accFinal=baseText+sessionFinal; // always rebuild from clean base
     const shown=(accFinal+ic).trim();
     if(shown){
       document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
       const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
       const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-      if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
+      if(hadNewFinal&&accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
     }
   };
 
