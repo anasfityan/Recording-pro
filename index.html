@@ -847,27 +847,33 @@ function showWordTranslation(word,wordIdx,words){
   pop.classList.add('show');
   clearTimeout(wordPopTimer);
 
-  // ━━ النطق الصوتي — نفس طريقة speakPhrase ━━
-  speechSynthesis.cancel();
-  setTimeout(()=>{
-    const u=new SpeechSynthesisUtterance(word);
-    u.lang=lang==='tr'?'tr-TR':'en-US';
-    u.rate=0.75;u.pitch=1;u.volume=1;
-    // ابحث عن صوت باللغة الصحيحة
-    const voices=speechSynthesis.getVoices();
-    const targetLang=lang==='tr'?'tr':'en';
-    const match=voices.find(v=>v.lang.toLowerCase().startsWith(targetLang));
-    if(match)u.voice=match;
-    speechSynthesis.speak(u);
-  },100);
+  // ━━ الصوت — Google Translate Audio مباشرة ━━
+  try{
+    const tl=lang==='tr'?'tr':'en';
+    // إزالة الصوت القديم إن وجد
+    const oldAudio=document.getElementById('gt-audio');
+    if(oldAudio)oldAudio.remove();
+    const audio=document.createElement('audio');
+    audio.id='gt-audio';
+    audio.src='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl='+tl+'&client=gtx&q='+encodeURIComponent(word);
+    document.body.appendChild(audio);
+    audio.play().catch(()=>{
+      // fallback: Web Speech
+      speechSynthesis.cancel();
+      setTimeout(()=>{
+        const u=new SpeechSynthesisUtterance(word);
+        u.lang=lang==='tr'?'tr-TR':'en-US';
+        u.rate=0.8;speechSynthesis.speak(u);
+      },80);
+    });
+  }catch(e){}
 
-  // ━━ الترجمة ━━
-  // قاموس محلي للإنجليزية
+  // ━━ الترجمة — Google Translate API ━━
   if(lang==='en'){
-    const cleanWord=word.toLowerCase().replace(/[^a-z]/g,'');
-    const offlineTr=DICT[cleanWord];
-    if(offlineTr){
-      const parts=offlineTr.split('/');
+    const cw=word.toLowerCase().replace(/[^a-z]/g,'');
+    const off=DICT[cw];
+    if(off){
+      const parts=off.split('/');
       document.getElementById('wp-tr').textContent=parts[0];
       document.getElementById('wp-alts').textContent=parts.length>1?'أيضاً: '+parts.slice(1).join(' / '):'';
       wordPopTimer=setTimeout(()=>pop.classList.remove('show'),4500);
@@ -875,42 +881,29 @@ function showWordTranslation(word,wordIdx,words){
     }
   }
 
-  // Google Translate غير الرسمية — تدعم التركية بشكل ممتاز
   const sl=lang==='tr'?'tr':'en';
-  const gtUrl='https://translate.googleapis.com/translate_a/single?client=gtx&sl='+sl+'&tl=ar&dt=t&q='+encodeURIComponent(word);
-  fetch(gtUrl)
+  fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl='+sl+'&tl=ar&dt=t&q='+encodeURIComponent(word))
     .then(r=>r.json())
     .then(d=>{
-      // Google Translate يرجع مصفوفة متداخلة
-      const translated=d[0]&&d[0][0]&&d[0][0][0]?d[0][0][0].trim():'';
+      // Google Translate يرجع [[["ترجمة","كلمة",...],...],...]
+      let translated='';
+      if(d&&d[0]){
+        // اجمع كل أجزاء الترجمة
+        translated=d[0].filter(x=>x&&x[0]).map(x=>x[0]).join('').trim();
+      }
       const isAr=/[؀-ۿ]/.test(translated);
       if(isAr&&translated){
         document.getElementById('wp-tr').textContent=translated;
-        // جمع الترجمات البديلة إن وجدت
-        const alts=[];
-        if(d[0]&&d[0].length>1){
-          for(let i=1;i<Math.min(d[0].length,3);i++){
-            const alt=(d[0][i][0]||'').trim();
-            if(alt&&alt!==translated&&/[؀-ۿ]/.test(alt))alts.push(alt);
-          }
-        }
-        document.getElementById('wp-alts').textContent=alts.length?'أيضاً: '+alts.join(' / '):'';
       }else{
         document.getElementById('wp-tr').textContent='—';
       }
     })
     .catch(()=>{
-      // fallback لـ mymemory
-      fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(word)+'&langpair='+sl+'|ar')
-        .then(r=>r.json())
-        .then(d=>{
-          const raw=(d.responseData?.translatedText||'').trim();
-          const isAr=/[؀-ۿ]/.test(raw);
-          document.getElementById('wp-tr').textContent=isAr&&raw!==word?raw:'(لا ترجمة متاحة)';
-        })
-        .catch(()=>{document.getElementById('wp-tr').textContent='(تحتاج إنترنت)';});
+      document.getElementById('wp-tr').textContent='(تحتاج إنترنت)';
     })
-    .finally(()=>{wordPopTimer=setTimeout(()=>pop.classList.remove('show'),6000);});
+    .finally(()=>{
+      wordPopTimer=setTimeout(()=>pop.classList.remove('show'),6000);
+    });
 }
 
 
@@ -955,16 +948,34 @@ function keepAlive(){
 
 function speakPhrase(){
   const L=list();const p=L[idx];if(!p)return;
-  if(isTTS){speechSynthesis.cancel();return}
-  initAudio();
-  const u=new SpeechSynthesisUtterance(p.text);
-  u.lang=lang==='tr'?'tr-TR':'en-US';
-  u.rate=ttsRate;u.pitch=ttsRate<0.65?0.92:1.0;u.volume=1;
   const b=document.getElementById('btn-tts');
+  if(isTTS){
+    speechSynthesis.cancel();
+    const old=document.getElementById('sp-audio');if(old){old.pause();old.remove();}
+    isTTS=false;b.classList.remove('on');b.textContent='🔊 استمع';
+    return;
+  }
   isTTS=true;b.classList.add('on');b.textContent='⏹ إيقاف';
-  speechSynthesis.cancel();
-  setTimeout(()=>speechSynthesis.speak(u),60);
-  u.onend=u.onerror=()=>{isTTS=false;b.classList.remove('on');b.textContent='🔊 استمع'};
+  const tl=lang==='tr'?'tr':'en';
+  // جرب Google TTS أولاً
+  const old=document.getElementById('sp-audio');if(old)old.remove();
+  const audio=document.createElement('audio');
+  audio.id='sp-audio';
+  audio.src='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl='+tl+'&client=gtx&q='+encodeURIComponent(p.text.slice(0,200));
+  document.body.appendChild(audio);
+  const done=()=>{isTTS=false;b.classList.remove('on');b.textContent='🔊 استمع';};
+  audio.onended=done;
+  audio.play().catch(()=>{
+    // fallback: Web Speech
+    audio.remove();
+    initAudio();
+    const u=new SpeechSynthesisUtterance(p.text);
+    u.lang=lang==='tr'?'tr-TR':'en-US';
+    u.rate=ttsRate;u.pitch=ttsRate<0.65?0.92:1.0;u.volume=1;
+    speechSynthesis.cancel();
+    setTimeout(()=>speechSynthesis.speak(u),60);
+    u.onend=u.onerror=done;
+  });
 }
 
 /* ══════ FREE MODE TTS ══════ */
