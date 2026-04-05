@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/anasfityan/Recording-pro#readme",
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^8.3.0",
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0"
