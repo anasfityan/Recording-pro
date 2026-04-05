@@ -840,68 +840,81 @@ function onRW(el,i,words){
 
 /* ══════ WORD TRANSLATION + SPEECH ══════ */
 function showWordTranslation(word,wordIdx,words){
-  // حافظ على الأحرف التركية الخاصة في التنظيف
-  const cleanWord=word.toLowerCase().replace(/[^a-zğışöüçа-я0-9]/gi,'');
   const pop=document.getElementById('word-pop');
   document.getElementById('wp-word').textContent=word;
-  document.getElementById('wp-tr').textContent='...';
+  document.getElementById('wp-tr').textContent='جاري الترجمة...';
   document.getElementById('wp-alts').textContent='';
   pop.classList.add('show');
   clearTimeout(wordPopTimer);
 
-  // النطق بالصوت — باللغة الصحيحة
-  speechSynthesis.cancel();
-  setTimeout(()=>{
-    const u=new SpeechSynthesisUtterance(word);
-    u.lang=lang==='tr'?'tr-TR':'en-US';
-    u.rate=0.75;u.pitch=1;u.volume=1;
-    // تأكد من وجود صوت تركي
-    if(lang==='tr'){
-      const voices=speechSynthesis.getVoices();
-      const trVoice=voices.find(v=>v.lang.startsWith('tr'));
-      if(trVoice)u.voice=trVoice;
-    }
-    speechSynthesis.speak(u);
-  },100);
+  // ━━ النطق الصوتي ━━
+  // نستخدم Google TTS لأنه يدعم التركية بشكل صحيح
+  const ttsLang=lang==='tr'?'tr':'en';
+  const ttsUrl='https://translate.google.com/translate_tts?ie=UTF-8&tl='+ttsLang+'&client=tw-ob&q='+encodeURIComponent(word);
+  const audio=new Audio(ttsUrl);
+  audio.play().catch(()=>{
+    // fallback للمتصفح إذا حُجب Google TTS
+    speechSynthesis.cancel();
+    setTimeout(()=>{
+      const u=new SpeechSynthesisUtterance(word);
+      u.lang=lang==='tr'?'tr-TR':'en-US';
+      u.rate=0.75;u.volume=1;
+      speechSynthesis.speak(u);
+    },80);
+  });
 
-  // قاموس إنجليزي محلي فقط للغة الإنجليزية
+  // ━━ الترجمة ━━
+  // قاموس محلي للإنجليزية
   if(lang==='en'){
+    const cleanWord=word.toLowerCase().replace(/[^a-z]/g,'');
     const offlineTr=DICT[cleanWord];
     if(offlineTr){
       const parts=offlineTr.split('/');
       document.getElementById('wp-tr').textContent=parts[0];
       document.getElementById('wp-alts').textContent=parts.length>1?'أيضاً: '+parts.slice(1).join(' / '):'';
-      wordPopTimer=setTimeout(()=>pop.classList.remove('show'),4000);
+      wordPopTimer=setTimeout(()=>pop.classList.remove('show'),4500);
       return;
     }
   }
 
-  // ترجمة أونلاين — langpair صحيح حسب اللغة
+  // Google Translate غير الرسمية — تدعم التركية بشكل ممتاز
   const sl=lang==='tr'?'tr':'en';
-  // استخدم الكلمة الأصلية للترجمة (مع الأحرف التركية الخاصة)
-  const wordToTranslate=word.replace(/[^a-zğışöüçA-ZĞIŞÖÜÇа-я\s]/g,'').trim();
-  fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(wordToTranslate)+'&langpair='+sl+'|ar')
+  const gtUrl='https://translate.googleapis.com/translate_a/single?client=gtx&sl='+sl+'&tl=ar&dt=t&q='+encodeURIComponent(word);
+  fetch(gtUrl)
     .then(r=>r.json())
     .then(d=>{
-      const raw=(d.responseData?.translatedText||'').trim();
-      // تحقق أن الترجمة عربية حقيقية وليست نسخة من الكلمة الأصلية
-      const isAr=/[؀-ۿ]/.test(raw);
-      const isSameAsInput=raw.toLowerCase()===wordToTranslate.toLowerCase();
-      if(isAr&&!isSameAsInput&&raw.length>0){
-        document.getElementById('wp-tr').textContent=raw;
-        const alts=[...new Set((d.matches||[])
-          .map(m=>(m.translation||'').trim())
-          .filter(t=>t&&t!==raw&&/[؀-ۿ]/.test(t))
-        )].slice(0,2);
+      // Google Translate يرجع مصفوفة متداخلة
+      const translated=d[0]&&d[0][0]&&d[0][0][0]?d[0][0][0].trim():'';
+      const isAr=/[؀-ۿ]/.test(translated);
+      if(isAr&&translated){
+        document.getElementById('wp-tr').textContent=translated;
+        // جمع الترجمات البديلة إن وجدت
+        const alts=[];
+        if(d[0]&&d[0].length>1){
+          for(let i=1;i<Math.min(d[0].length,3);i++){
+            const alt=(d[0][i][0]||'').trim();
+            if(alt&&alt!==translated&&/[؀-ۿ]/.test(alt))alts.push(alt);
+          }
+        }
         document.getElementById('wp-alts').textContent=alts.length?'أيضاً: '+alts.join(' / '):'';
       }else{
-        // إذا فشلت الترجمة أظهر رسالة واضحة
-        document.getElementById('wp-tr').textContent=lang==='tr'?'(لا ترجمة متاحة)':'—';
+        document.getElementById('wp-tr').textContent='—';
       }
     })
-    .catch(()=>{document.getElementById('wp-tr').textContent='(تحتاج إنترنت)';})
+    .catch(()=>{
+      // fallback لـ mymemory
+      fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(word)+'&langpair='+sl+'|ar')
+        .then(r=>r.json())
+        .then(d=>{
+          const raw=(d.responseData?.translatedText||'').trim();
+          const isAr=/[؀-ۿ]/.test(raw);
+          document.getElementById('wp-tr').textContent=isAr&&raw!==word?raw:'(لا ترجمة متاحة)';
+        })
+        .catch(()=>{document.getElementById('wp-tr').textContent='(تحتاج إنترنت)';});
+    })
     .finally(()=>{wordPopTimer=setTimeout(()=>pop.classList.remove('show'),6000);});
 }
+
 
 document.addEventListener('click',e=>{
   if(!e.target.closest('.rw')&&!e.target.closest('#word-pop')){
