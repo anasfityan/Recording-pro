@@ -839,6 +839,22 @@ function onRW(el,i,words){
 }
 
 /* ══════ WORD TRANSLATION + SPEECH ══════ */
+/* ══ كشف اللغة التلقائي ══ */
+function detectLang(text){
+  if(!text)return lang==='my'?'en':lang;
+  // الأحرف التركية الخاصة
+  if(/[ğışöüçĞIŞÖÜÇ]/.test(text))return'tr';
+  // إذا كان النص إنجليزي
+  if(/^[a-zA-Z\s\.,!?'"-]+$/.test(text.trim()))return'en';
+  return lang==='my'?'en':lang;
+}
+
+function getLangForTTS(){
+  if(lang!=='my')return lang;
+  const L=list();const p=L[idx];
+  return p?detectLang(p.text):'en';
+}
+
 function showWordTranslation(word,wordIdx,words){
   const pop=document.getElementById('word-pop');
   document.getElementById('wp-word').textContent=word;
@@ -869,7 +885,7 @@ function showWordTranslation(word,wordIdx,words){
   }catch(e){}
 
   // ━━ الترجمة — Google Translate API ━━
-  if(lang==='en'){
+  if(getLangForTTS()==='en'){
     const cw=word.toLowerCase().replace(/[^a-z]/g,'');
     const off=DICT[cw];
     if(off){
@@ -881,7 +897,7 @@ function showWordTranslation(word,wordIdx,words){
     }
   }
 
-  const sl=lang==='tr'?'tr':'en';
+  const sl=getLangForTTS()==='tr'?'tr':'en';
   fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl='+sl+'&tl=ar&dt=t&q='+encodeURIComponent(word))
     .then(r=>r.json())
     .then(d=>{
@@ -956,7 +972,7 @@ function speakPhrase(){
     return;
   }
   isTTS=true;b.classList.add('on');b.textContent='⏹ إيقاف';
-  const tl=lang==='tr'?'tr':'en';
+  const tl=getLangForTTS()==='tr'?'tr':'en';
   // جرب Google TTS أولاً
   const old=document.getElementById('sp-audio');if(old)old.remove();
   const audio=document.createElement('audio');
@@ -970,7 +986,7 @@ function speakPhrase(){
     audio.remove();
     initAudio();
     const u=new SpeechSynthesisUtterance(p.text);
-    u.lang=lang==='tr'?'tr-TR':'en-US';
+    u.lang=getLangForTTS()==='tr'?'tr-TR':'en-US';
     u.rate=ttsRate;u.pitch=ttsRate<0.65?0.92:1.0;u.volume=1;
     speechSynthesis.cancel();
     setTimeout(()=>speechSynthesis.speak(u),60);
