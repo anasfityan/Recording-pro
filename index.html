@@ -899,14 +899,13 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING v9 ══════
-   The Android system beep happens because Android forces the mic closed
-   after silence, even with continuous=true. We cannot prevent this.
-   Solution: play a masked noise burst at the moment of restart,
-   which covers the system beep sound completely.
+/* ══════ RECORDING v13 — FINAL ══════
+   continuous=true + صحيح resultIndex tracking
+   كل نتيجة final لها index فريد — نحفظ ما عولجنا ولا نُضيف مرتين أبداً
 */
 let isAborting=false;
 let recAudioCtx=null;
+let processedIndexes=new Set(); // indexes of final results already added
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -927,73 +926,60 @@ function getRecAudioCtx(){
   return recAudioCtx;
 }
 
-/* Play a very short, very quiet white-noise burst.
-   This masks the Android system mic-open/close click sound.
-   Duration: 80ms, gain: 0.04 (barely audible but covers the click) */
-function maskBeep(){
-  try{
-    const ctx=getRecAudioCtx();
-    if(!ctx)return;
-    const bufSize=ctx.sampleRate*0.08; // 80ms
-    const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
-    const data=buf.getChannelData(0);
-    for(let i=0;i<bufSize;i++)data[i]=(Math.random()*2-1)*0.04;
-    const src=ctx.createBufferSource();
-    src.buffer=buf;
-    const g=ctx.createGain();
-    g.gain.setValueAtTime(0.04,ctx.currentTime);
-    g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.08);
-    src.connect(g);g.connect(ctx.destination);
-    src.start();
-  }catch(e){}
-}
-
 function toggleRecording(){
   const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
-  if(!hasSR){document.getElementById('no-sup').style.display='block';return}
-  if(isRec){stopRec();return}
+  if(!hasSR){document.getElementById('no-sup').style.display='block';return;}
+  if(isRec){stopRec();return;}
   startRec();
 }
 
 function startRec(){
-  accFinal='';shouldRec=true;isAborting=false;isRec=true;
-  stats.sess++;saveStats();clearResult();
+  accFinal='';
+  processedIndexes=new Set();
+  shouldRec=true;
+  isAborting=false;
+  isRec=true;
+  stats.sess++;
+  saveStats();
+  clearResult();
   setRecUI(true);
-  getRecAudioCtx(); // activate audio context on user gesture
+  getRecAudioCtx();
   launchRec();
 }
 
 function launchRec(){
+  if(!shouldRec||isAborting)return;
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   let r;
-  try{r=new SR();}catch(e){setRecUI(false);isRec=false;return;}
+  try{r=new SR();}catch(e){stopRec();return;}
   recObj=r;
   r.lang=lang==='tr'?'tr-TR':'en-US';
   r.continuous=true;
   r.interimResults=true;
   r.maxAlternatives=1;
 
-  // Snapshot of accFinal at the START of this SR instance.
-  // When SR restarts after silence it fires onresult from index 0 again —
-  // we add only NEW text on top of this snapshot to prevent duplicates.
-  const baseText=accFinal;
-  let sessionFinal=''; // final text accumulated within THIS SR instance only
-
   r.onresult=ev=>{
-    let fc='',ic='';
-    for(let i=ev.resultIndex;i<ev.results.length;i++){
-      if(ev.results[i].isFinal)fc+=ev.results[i][0].transcript+' ';
-      else ic+=ev.results[i][0].transcript;
+    // Collect only NEW final results using their absolute index
+    let gotNewFinal=false;
+    let interimText='';
+    for(let i=0;i<ev.results.length;i++){
+      if(ev.results[i].isFinal){
+        if(!processedIndexes.has(i)){
+          processedIndexes.add(i);
+          accFinal+=ev.results[i][0].transcript+' ';
+          gotNewFinal=true;
+        }
+      } else {
+        interimText+=ev.results[i][0].transcript;
+      }
     }
-    const hadNewFinal=fc.trim().length>0;
-    if(fc)sessionFinal+=fc;
-    accFinal=baseText+sessionFinal; // always rebuild from clean base
-    const shown=(accFinal+ic).trim();
+    const shown=(accFinal+interimText).trim();
     if(shown){
-      document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
+      document.getElementById('res-content').innerHTML=
+        '<div class="res-tx" dir="ltr">"'+shown+'"</div>';
       const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
       const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-      if(hadNewFinal&&accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
+      if(gotNewFinal&&accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
     }
   };
 
@@ -1003,9 +989,9 @@ function launchRec(){
       setRecUI(false);
       return;
     }
-    // Android closed mic after silence — mask the system click then restart
-    maskBeep();
-    setTimeout(launchRec,90);
+    // SR ended (silence timeout) — restart keeping all state intact
+    // processedIndexes is preserved so no duplicate on restart
+    setTimeout(launchRec,80);
   };
 
   r.onerror=ev=>{
@@ -1014,21 +1000,21 @@ function launchRec(){
       setRecUI(false);
       document.getElementById('no-sup').style.display='block';
     }
-    // no-speech / aborted: onend handles restart
   };
 
   try{r.start();}
-  catch(e){if(shouldRec&&isRec){maskBeep();setTimeout(launchRec,150);}}
+  catch(e){if(shouldRec&&!isAborting)setTimeout(launchRec,150);}
 }
 
 function stopRec(){
   isAborting=true;
-  shouldRec=false;isRec=false;
+  shouldRec=false;
+  isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
   setRecUI(false);
 }
 
-function stopRecAudio(){}  // kept for compatibility
+function stopRecAudio(){}
 /* ══════ ANALYZE ══════ */
 function analyze(spoken){
   const L=list();const target=(L[idx]||{}).text||'';if(!target)return;
