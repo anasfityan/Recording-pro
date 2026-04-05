@@ -899,10 +899,11 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING v14 — إصلاح نهائي للتكرار ══════ */
+/* ══════ RECORDING — إصلاح التكرار والصوت ══════ */
 let isAborting=false;
 let recAudioCtx=null;
-let globalResultIndex=0; // يزيد عبر كل جلسات SR — يمنع إعادة معالجة نتائج قديمة
+// نحتفظ بالنصوص النهائية المؤكدة في مصفوفة — كل جلسة SR مستقلة
+let finalTranscripts=[];
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
@@ -932,7 +933,7 @@ function toggleRecording(){
 
 function startRec(){
   accFinal='';
-  globalResultIndex=0;
+  finalTranscripts=[];
   shouldRec=true;isAborting=false;isRec=true;
   stats.sess++;saveStats();clearResult();
   setRecUI(true);
@@ -947,39 +948,47 @@ function launchRec(){
   try{r=new SR();}catch(e){stopRec();return;}
   recObj=r;
   r.lang=lang==='tr'?'tr-TR':'en-US';
-  r.continuous=true;
+  r.continuous=false; // false يمنع التكرار — كل جملة جلسة مستقلة
   r.interimResults=true;
   r.maxAlternatives=1;
 
+  // نص مؤقت لهذه الجلسة فقط
+  let sessionFinal='';
+
   r.onresult=ev=>{
-    let ic='';
-    // فقط النتائج الجديدة — من globalResultIndex وليس من الصفر
+    let interim='';
     for(let i=ev.resultIndex;i<ev.results.length;i++){
       if(ev.results[i].isFinal){
-        if(i>=globalResultIndex){
-          accFinal+=ev.results[i][0].transcript+' ';
-          globalResultIndex=i+1; // لن نعالج هذا الـ index مرة ثانية أبداً
+        const t=ev.results[i][0].transcript.trim();
+        if(t&&t!==sessionFinal){
+          sessionFinal=t;
         }
       } else {
-        ic+=ev.results[i][0].transcript;
+        interim+=ev.results[i][0].transcript;
       }
     }
-    const shown=(accFinal+ic).trim();
+    // نعرض: النصوص المؤكدة السابقة + النهائي الحالي + المؤقت
+    const allFinal=finalTranscripts.concat(sessionFinal?[sessionFinal]:[]).join(' ');
+    const shown=(allFinal+(interim?' '+interim:'')).trim();
     if(shown){
       document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
       const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
       const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-      if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
     }
+    accFinal=allFinal;
+    if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
   };
 
   r.onend=()=>{
+    // احفظ النص النهائي لهذه الجلسة قبل البدء بجلسة جديدة
+    if(sessionFinal&&!finalTranscripts.includes(sessionFinal)){
+      finalTranscripts.push(sessionFinal);
+    }
     if(isAborting||!shouldRec){
       isRec=false;isAborting=false;
       setRecUI(false);
       return;
     }
-    // عند إعادة التشغيل globalResultIndex محفوظ — لا تكرار
     setTimeout(launchRec,90);
   };
 
@@ -1274,24 +1283,8 @@ function pdfClose(){
   var gb=document.getElementById('pdf-modal-go');if(gb)gb.style.display='none';
 }
 
-/* ══════ CLICK SOUND ══════ */
-let _clickAC=null;
-function playClick(){
-  try{
-    if(!_clickAC)_clickAC=new(window.AudioContext||window.webkitAudioContext)();
-    var ctx=_clickAC;
-    [[523,0],[659,0.05]].forEach(function(pair){
-      var freq=pair[0],delay=pair[1];
-      var o=ctx.createOscillator(),g=ctx.createGain();
-      o.type='sine';o.frequency.value=freq;
-      g.gain.setValueAtTime(0,ctx.currentTime+delay);
-      g.gain.linearRampToValueAtTime(0.05,ctx.currentTime+delay+0.012);
-      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.2);
-      o.connect(g);g.connect(ctx.destination);
-      o.start(ctx.currentTime+delay);o.stop(ctx.currentTime+delay+0.22);
-    });
-  }catch(e){}
-}
+/* ══════ CLICK SOUND — معطل ══════ */
+function playClick(){}
 
 /* ══════ INIT ══════ */
 setGreeting();
