@@ -796,8 +796,9 @@ function setMode(m,btn){
   btn.classList.add('active');
   updateSlider('mode-tabs','mode-slider',btn);
   document.getElementById('free-controls').classList.toggle('show',m==='free');
-  document.getElementById('pron-card').classList.toggle('show',m==='pronounce');
-  // عند مغادرة وضع اللفظ أعد إظهار النص الأصلي
+  // في وضع لفظ: أخفِ بطاقة اللفظ السفلية وبطاقة النتيجة
+  document.getElementById('pron-card').style.display='none';
+  document.getElementById('res-card').style.display=m==='pronounce'?'none':'';
   if(m!=='pronounce'){
     document.getElementById('ph-text').style.display='';
     const pi=document.getElementById('pron-inline');if(pi)pi.remove();
@@ -1144,7 +1145,9 @@ function launchRec(){
     }
     accFinal=allFinal;
     if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
-    if(accFinal.trim()&&mode==='pronounce')analyzePronounce(accFinal.trim());
+    // في وضع لفظ: حلل الكلام المؤقت أيضاً لتحويل الكلمات فوراً
+    const spokenSoFar=(allFinal+(interim?' '+interim:'')).trim();
+    if(spokenSoFar&&mode==='pronounce')analyzePronounce(spokenSoFar);
   };
 
   r.onend=()=>{
