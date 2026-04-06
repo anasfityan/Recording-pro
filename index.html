@@ -649,17 +649,34 @@ function buildPronTrainer(){
   pronWords=words;
   pronStatus=words.map(()=>'pending');
   pronCurrent=0;pronActive=false;
+  // أخفِ النص العادي وأظهر الكلمات الملونة في نفس المكان
+  document.getElementById('ph-text').style.display='none';
   renderPronWords();
   document.getElementById('pron-hint').textContent=p.ph||'';
   document.getElementById('pron-progress').textContent='';
+  // ضع الكلمات الملونة داخل نفس حاوية النص
+  const nv=document.getElementById('nv');
+  const existing=document.getElementById('pron-inline');
+  if(!existing){
+    const div=document.createElement('div');
+    div.id='pron-inline';
+    div.style.cssText='display:flex;flex-wrap:wrap;gap:6px;direction:ltr;margin-bottom:6px';
+    nv.insertBefore(div,nv.firstChild);
+  }
+  renderPronWords();
 }
 
 function renderPronWords(){
-  const c=document.getElementById('pron-words');
+  // رسم في المكان الإنلاين داخل الكارد
+  const c=document.getElementById('pron-inline')||document.getElementById('pron-words');
+  if(!c)return;
   c.innerHTML=pronWords.map((w,i)=>{
     const st=i===pronCurrent?'current':pronStatus[i];
     return`<span class="pw ${st}">${w}</span>`;
   }).join('');
+  // أيضاً حدّث الـ pron-words إذا كانت موجودة
+  const pw=document.getElementById('pron-words');
+  if(pw&&pw!==c)pw.innerHTML=c.innerHTML;
   const done=pronStatus.filter(s=>s==='correct').length;
   const total=pronWords.length;
   document.getElementById('pron-progress').textContent=
@@ -780,6 +797,11 @@ function setMode(m,btn){
   updateSlider('mode-tabs','mode-slider',btn);
   document.getElementById('free-controls').classList.toggle('show',m==='free');
   document.getElementById('pron-card').classList.toggle('show',m==='pronounce');
+  // عند مغادرة وضع اللفظ أعد إظهار النص الأصلي
+  if(m!=='pronounce'){
+    document.getElementById('ph-text').style.display='';
+    const pi=document.getElementById('pron-inline');if(pi)pi.remove();
+  }
   updatePhrase();clearResult();
   if(m==='pronounce')buildPronTrainer();
 }
@@ -1092,7 +1114,7 @@ function launchRec(){
   let r;
   try{r=new SR();}catch(e){stopRec();return;}
   recObj=r;
-  r.lang=lang==='tr'?'tr-TR':'en-US';
+  r.lang=getLangForTTS()==='tr'?'tr-TR':'en-US';
   r.continuous=false; // false يمنع التكرار — كل جملة جلسة مستقلة
   r.interimResults=true;
   r.maxAlternatives=1;
