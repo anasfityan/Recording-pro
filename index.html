@@ -1446,8 +1446,7 @@ function pdfAddToTexts(){
   var fileName=pdfFileName?pdfFileName.replace('.pdf',''):'PDF';
   var label=fileName+' — صفحة '+pdfPage;
   // قسّم النص إلى جمل
-  var sents=pdfText.match(/[^.!?
-]{15,}[.!?]?/g)||[];
+  var sents=pdfText.match(/[^.!?\n]{15,}[.!?]?/g)||[];
   if(!sents.length)sents=[pdfText];
   var added=0;
   sents.forEach(function(s){
