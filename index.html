@@ -865,25 +865,26 @@ function onRW(el,i,words){
 /* ══ كشف اللغة التلقائي ══ */
 function detectLang(text){
   if(!text)return'en';
+  // الأحرف التركية الخاصة تحدد اللغة
   if(/[ğışöüçĞIŞÖÜÇ]/.test(text))return'tr';
-  if(/^[a-zA-Z\s\.,!?'"-]+$/.test(text.trim()))return'en';
   return'en';
 }
 
 function getLangForTTS(){
-  // إذا اللغة محددة (en أو tr) استخدمها مباشرة
+  // EN أو TR: استخدم مباشرة بدون كشف
   if(lang==='en')return'en';
   if(lang==='tr')return'tr';
-  // في "نصوصي" اكشف من الجملة الكاملة
+  // نصوصي: اكشف من الجملة الكاملة
   const L=list();const p=L[idx];
   if(!p)return'en';
   return detectLang(p.text);
 }
 
 function getLangForWord(word){
-  // للكلمة المنقور عليها — نكشف من الجملة الكاملة لا من الكلمة وحدها
+  // EN أو TR: استخدم مباشرة بدون كشف
   if(lang==='en')return'en';
   if(lang==='tr')return'tr';
+  // نصوصي: اكشف من الجملة الكاملة
   const L=list();const p=L[idx];
   if(!p)return detectLang(word);
   return detectLang(p.text);
@@ -1244,7 +1245,13 @@ function delMyText(i){myTexts.splice(i,1);DB.my=myTexts;localStorage.setItem('sp
 function renderMyTexts(){
   const el=document.getElementById('my-list');
   if(!myTexts.length){el.innerHTML='<div class="empty-state">لا توجد نصوص — اضغط ＋ أعلى الشاشة 📝</div>';return}
-  el.innerHTML=myTexts.map((t,i)=>`<div class="my-item" onclick="goMyText(${i})"><div class="my-prev">${esc(t.text)}</div><button class="my-del" onclick="event.stopPropagation();delMyText(${i})">🗑</button></div>`).join('');
+  el.innerHTML=myTexts.map((t,i)=>`<div class="my-item" onclick="goMyText(${i})">
+    <div style="flex:1;overflow:hidden">
+      ${t.src?`<div style="font-size:10px;color:var(--ac2);margin-bottom:2px">📄 ${esc(t.src)}</div>`:''}
+      <div class="my-prev">${esc(t.text)}</div>
+    </div>
+    <button class="my-del" onclick="event.stopPropagation();delMyText(${i})">🗑</button>
+  </div>`).join('');
 }
 function goMyText(i){
   lang='my';idx=i;
@@ -1385,26 +1392,35 @@ function renderPdfPage(){
     page.render({canvasContext:ctx,viewport:vp});
     document.getElementById('pdf-page-lbl').textContent=
       'صفحة '+pdfPage+' من '+pdfDoc.numPages;
-    page.getTextContent().then(function(tc){
-      // Preserve line structure by detecting Y-position changes
-      var lines=[],lastY=null,curLine='';
+    page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false}).then(function(tc){
+      var lines=[],lastY=null,lastX=null,curLine='';
       tc.items.forEach(function(item){
+        if(!item.str)return;
         var y=item.transform?Math.round(item.transform[5]):null;
-        if(lastY!==null&&y!==null&&Math.abs(y-lastY)>4){
+        var x=item.transform?item.transform[4]:null;
+        var w=item.width||0;
+        // سطر جديد إذا تغير Y بأكثر من 2
+        if(lastY!==null&&y!==null&&Math.abs(y-lastY)>2){
           if(curLine.trim())lines.push(curLine.trim());
-          curLine='';
+          curLine=item.str;
+        } else {
+          // نفس السطر — أضف مسافة إذا كان هناك فجوة بين الكلمات
+          if(curLine&&lastX!==null&&x!==null&&(x-lastX)>1){
+            curLine+=' '+item.str;
+          } else {
+            curLine+=item.str;
+          }
         }
-        curLine+=(curLine?' ':'')+item.str;
         lastY=y;
+        lastX=x!==null?x+w:null;
       });
       if(curLine.trim())lines.push(curLine.trim());
-      pdfText=lines.filter(function(l){return l.length>0;}).join('\n');
+      pdfText=lines.filter(function(l){return l.trim().length>0;}).join('\n');
       var tb=document.getElementById('pdf-text-box');
       if(tb){
         tb.style.display=pdfText?'block':'none';
-        // Format nicely with line breaks
         tb.innerHTML=pdfText.split('\n').map(function(line){
-          return '<div style="margin-bottom:4px">'+escHtml(line)+'</div>';
+          return '<div style="margin-bottom:5px;direction:ltr;text-align:left;font-size:13px;color:var(--tx)">'+escHtml(line)+'</div>';
         }).join('');
       }
     });
@@ -1426,18 +1442,26 @@ function pdfSpeak(){
 
 function pdfAddToTexts(){
   if(!pdfText){alert('لا يوجد نص');return;}
-  var sents=pdfText.match(/[^.!?]{10,}[.!?]/g)||[];
-  if(!sents.length)sents=[pdfText.slice(0,200)];
+  // احفظ الصفحة كاملة كملف PDF واحد في نصوصي
+  var fileName=pdfFileName?pdfFileName.replace('.pdf',''):'PDF';
+  var label=fileName+' — صفحة '+pdfPage;
+  // قسّم النص إلى جمل
+  var sents=pdfText.match(/[^.!?
+]{15,}[.!?]?/g)||[];
+  if(!sents.length)sents=[pdfText];
   var added=0;
-  sents.slice(0,5).forEach(function(s){
+  sents.forEach(function(s){
     var t=s.trim();
-    if(t.length>10&&t.length<400){myTexts.push({text:t,ph:'',ar:''});added++;}
+    if(t.length>10&&t.length<500){
+      myTexts.push({text:t,ph:'',ar:'',src:label});
+      added++;
+    }
   });
   if(added){
     DB.my=myTexts;
     localStorage.setItem('sp_my',JSON.stringify(myTexts));
     renderMyTexts();
-    alert('تمت إضافة '+added+' جملة ✅');
+    alert('تمت إضافة '+added+' جملة من "'+label+'" ✅');
   } else {
     alert('لم يتم إيجاد جمل مناسبة');
   }
