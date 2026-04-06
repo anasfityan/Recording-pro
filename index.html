@@ -228,6 +228,12 @@ textarea.f-inp{resize:vertical;min-height:70px}
 .tips-pop.show{display:block;animation:fU .18s ease both}
 .tips-pop strong{color:var(--tx)}
 
+/* MY LANG SELECTOR */
+.my-lang-bar{display:flex;align-items:center;gap:8px;margin-bottom:.8rem;background:var(--sur);border:1px solid var(--brd);border-radius:50px;padding:4px}
+.my-lang-lbl{font-size:11px;color:var(--tx3);padding:0 8px;white-space:nowrap}
+.myl-btn{flex:1;padding:7px 4px;border:none;border-radius:50px;background:transparent;color:var(--tx2);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;touch-action:manipulation}
+.myl-btn.active{background:linear-gradient(135deg,rgba(124,109,250,.25),rgba(192,132,252,.25));color:var(--tx);border:1px solid rgba(124,109,250,.3)}
+
 /* ANIMATIONS */
 @keyframes fD{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fU{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -437,6 +443,12 @@ textarea.f-inp{resize:vertical;min-height:70px}
 
   <!-- MY TEXTS PAGE -->
   <div class="pg" id="pg-mytexts">
+    <!-- لغة النطق في نصوصي -->
+    <div class="my-lang-bar">
+      <span class="my-lang-lbl">🔊 لغة النطق:</span>
+      <button class="myl-btn active" id="myl-en" onclick="setMyLang('en',this)">🇺🇸 English</button>
+      <button class="myl-btn" id="myl-tr" onclick="setMyLang('tr',this)">🇹🇷 Türkçe</button>
+    </div>
     <div class="my-list" id="my-list">
       <div class="empty-state">لا توجد نصوص بعد — اضغط ＋ أعلى الشاشة لإضافة نص 📝</div>
     </div>
@@ -626,7 +638,7 @@ const DICT={
 };
 
 /* ══════ STATE ══════ */
-let lang='en',idx=0,mode='normal';
+let lang='en',idx=0,mode='normal',myLang='en';
 let isRec=false,recObj=null,accFinal='',shouldRec=false,lastFinalLen=0;
 let isHid=false,isTTS=false,ttsRate=0.9;
 let myTexts=[],stats={sess:0,scores:[],err:{},ok:{},reps:{}};
@@ -862,32 +874,25 @@ function onRW(el,i,words){
 }
 
 /* ══════ WORD TRANSLATION + SPEECH ══════ */
-/* ══ كشف اللغة التلقائي ══ */
-function detectLang(text){
-  if(!text)return'en';
-  // الأحرف التركية الخاصة تحدد اللغة
-  if(/[ğışöüçĞIŞÖÜÇ]/.test(text))return'tr';
-  return'en';
+/* ══ اختيار لغة النطق يدوياً ══ */
+function setMyLang(l,btn){
+  myLang=l;
+  document.querySelectorAll('.myl-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
 }
 
 function getLangForTTS(){
-  // EN أو TR: استخدم مباشرة بدون كشف
   if(lang==='en')return'en';
   if(lang==='tr')return'tr';
-  // نصوصي: اكشف من الجملة الكاملة
-  const L=list();const p=L[idx];
-  if(!p)return'en';
-  return detectLang(p.text);
+  // نصوصي: استخدم الاختيار اليدوي
+  return myLang;
 }
 
 function getLangForWord(word){
-  // EN أو TR: استخدم مباشرة بدون كشف
   if(lang==='en')return'en';
   if(lang==='tr')return'tr';
-  // نصوصي: اكشف من الجملة الكاملة
-  const L=list();const p=L[idx];
-  if(!p)return detectLang(word);
-  return detectLang(p.text);
+  // نصوصي: استخدم الاختيار اليدوي
+  return myLang;
 }
 
 function showWordTranslation(word,wordIdx,words){
