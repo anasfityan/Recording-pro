@@ -1122,27 +1122,30 @@ function launchRec(){
   try{r=new SR();}catch(e){stopRec();return;}
   recObj=r;
   r.lang=getLangForTTS()==='tr'?'tr-TR':'en-US';
-  r.continuous=false; // false يمنع التكرار — كل جملة جلسة مستقلة
+  r.continuous=true;   // مفتوح باستمرار مثل واتساب
   r.interimResults=true;
   r.maxAlternatives=1;
 
-  // نص مؤقت لهذه الجلسة فقط
-  let sessionFinal='';
+  // نتتبع آخر index نهائي معالج لمنع التكرار
+  let lastProcessedIndex=0;
 
   r.onresult=ev=>{
     let interim='';
+    // معالجة النتائج الجديدة فقط
     for(let i=ev.resultIndex;i<ev.results.length;i++){
       if(ev.results[i].isFinal){
-        const t=ev.results[i][0].transcript.trim();
-        if(t&&t!==sessionFinal){
-          sessionFinal=t;
+        if(i>=lastProcessedIndex){
+          const t=ev.results[i][0].transcript.trim();
+          if(t&&!finalTranscripts.includes(t)){
+            finalTranscripts.push(t);
+          }
+          lastProcessedIndex=i+1;
         }
       } else {
         interim+=ev.results[i][0].transcript;
       }
     }
-    // نعرض: النصوص المؤكدة السابقة + النهائي الحالي + المؤقت
-    const allFinal=finalTranscripts.concat(sessionFinal?[sessionFinal]:[]).join(' ');
+    const allFinal=finalTranscripts.join(' ');
     const shown=(allFinal+(interim?' '+interim:'')).trim();
     if(shown){
       document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
@@ -1151,21 +1154,17 @@ function launchRec(){
     }
     accFinal=allFinal;
     if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
-    // في وضع لفظ: حلل الكلام المؤقت أيضاً لتحويل الكلمات فوراً
     const spokenSoFar=(allFinal+(interim?' '+interim:'')).trim();
     if(spokenSoFar&&mode==='pronounce')analyzePronounce(spokenSoFar);
   };
 
   r.onend=()=>{
-    // احفظ النص النهائي لهذه الجلسة قبل البدء بجلسة جديدة
-    if(sessionFinal&&!finalTranscripts.includes(sessionFinal)){
-      finalTranscripts.push(sessionFinal);
-    }
     if(isAborting||!shouldRec){
       isRec=false;isAborting=false;
       setRecUI(false);
       return;
     }
+    // أعد التشغيل تلقائياً إذا انقطع
     setTimeout(launchRec,90);
   };
 
@@ -1174,6 +1173,10 @@ function launchRec(){
       shouldRec=false;isRec=false;isAborting=false;
       setRecUI(false);
       document.getElementById('no-sup').style.display='block';
+    }
+    // تجاهل أخطاء no-speech وأعد التشغيل
+    if(ev.error==='no-speech'&&shouldRec&&!isAborting){
+      setTimeout(launchRec,200);
     }
   };
 
