@@ -173,10 +173,19 @@ body::before{content:'';position:fixed;top:-30%;left:-20%;width:60%;height:60%;b
 .bnav-btn.active svg{stroke:var(--ac2)!important}
 
 /* CENTER RECORD — rises above pill */
-.bnav-ctr{display:flex;flex-direction:column;align-items:center;margin-top:-32px;flex-shrink:0}
+.bnav-ctr{display:flex;flex-direction:column;align-items:center;margin-top:-32px;flex-shrink:0;position:relative}
 .rec-btn{width:64px;height:64px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 22px rgba(124,109,250,.55),0 0 0 5px var(--sur);position:relative;z-index:2;transition:all .22s;touch-action:manipulation;-webkit-appearance:none;user-select:none;-webkit-user-select:none}
 .rec-btn:active{transform:scale(.88)}
 .rec-btn.on{background:linear-gradient(135deg,#f87171,#e11d48);box-shadow:0 6px 22px rgba(248,113,113,.55),0 0 0 5px var(--sur)}
+.rec-btn.locked{background:linear-gradient(135deg,#22c55e,#16a34a)!important;box-shadow:0 6px 22px rgba(34,197,94,.55),0 0 0 5px var(--sur)!important}
+/* LOCK FLOAT — appears above record button when recording */
+.lock-float{position:absolute;top:-82px;left:50%;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;gap:5px;pointer-events:none;z-index:20}
+.lock-float.show{display:flex}
+.lock-ic{width:40px;height:40px;border-radius:50%;background:var(--sur);border:2px solid var(--brd2);display:flex;align-items:center;justify-content:center;color:var(--tx2);box-shadow:0 4px 16px rgba(0,0,0,.3);transition:all .2s}
+.lock-ic.active{border-color:var(--ac);color:var(--ac);transform:scale(1.12)}
+.lock-ic.locked{background:#22c55e;border-color:#22c55e;color:#fff}
+.lock-arrow{display:flex;flex-direction:column;align-items:center;animation:lockPulse 1.1s ease infinite;opacity:.7}
+@keyframes lockPulse{0%,100%{transform:translateY(2px);opacity:.4}50%{transform:translateY(-2px);opacity:.9}}
 .rec-btn.on::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:2px solid rgba(248,113,113,.3);animation:rp 1.3s infinite}
 @keyframes rp{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.14);opacity:.3}}
 .rec-lbl{font-size:9px;color:var(--tx3);margin-top:4px;font-family:'Tajawal',sans-serif;transition:color .2s}
@@ -549,6 +558,19 @@ textarea.f-inp{resize:vertical;min-height:70px}
 
     <!-- CENTER RECORD — rises above pill -->
     <div class="bnav-ctr">
+      <!-- LOCK FLOAT — swipe up to lock like WhatsApp -->
+      <div class="lock-float" id="lock-float">
+        <div class="lock-ic" id="lock-ic">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <div class="lock-arrow">
+          <svg viewBox="0 0 24 24" width="14" height="8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+          <svg viewBox="0 0 24 24" width="14" height="8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+        </div>
+      </div>
       <button class="rec-btn" id="rec-btn" onclick="toggleRecording()">
         <svg id="rec-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="9" y="2" width="6" height="12" rx="3"/>
@@ -1075,19 +1097,29 @@ function stopFreePlay(){
 
 /* ══════ RECORDING — إصلاح التكرار والصوت ══════ */
 let isAborting=false;
+let isLocked=false;
 let recAudioCtx=null;
 // نحتفظ بالنصوص النهائية المؤكدة في مصفوفة — كل جلسة SR مستقلة
 let finalTranscripts=[];
 
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
-  if(btn)btn.classList.toggle('on',on);
+  if(btn){btn.classList.toggle('on',on);if(!on)btn.classList.remove('locked');}
   const ic=document.getElementById('rec-icon');
   if(ic)ic.innerHTML=on
     ?'<rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" stroke="none"/>'
     :'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10c0 4 3 7 7 7s7-3 7-7"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>';
   const lbl=document.getElementById('rec-lbl');
-  if(lbl){lbl.textContent=on?'جاري...':'تسجيل';lbl.classList.toggle('on',on);}
+  if(on){
+    if(lbl){lbl.textContent=isLocked?'مقفل 🔒':'جاري...';lbl.classList.add('on');}
+  } else {
+    if(lbl){lbl.textContent='تسجيل';lbl.classList.remove('on');}
+    const lf=document.getElementById('lock-float');
+    if(lf)lf.classList.remove('show');
+    const li=document.getElementById('lock-ic');
+    if(li)li.classList.remove('active','locked');
+    isLocked=false;
+  }
 }
 
 function getRecAudioCtx(){
@@ -1101,7 +1133,11 @@ function getRecAudioCtx(){
 function toggleRecording(){
   const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
   if(!hasSR){document.getElementById('no-sup').style.display='block';return;}
-  if(isRec){stopRec();return;}
+  if(isRec){
+    // عند الضغط مرة ثانية وهو مقفل — أوقف التسجيل
+    stopRec();
+    return;
+  }
   startRec();
 }
 
@@ -1174,10 +1210,7 @@ function launchRec(){
       setRecUI(false);
       document.getElementById('no-sup').style.display='block';
     }
-    // تجاهل أخطاء no-speech وأعد التشغيل
-    if(ev.error==='no-speech'&&shouldRec&&!isAborting){
-      setTimeout(launchRec,200);
-    }
+    // onend سيتكفّل بإعادة التشغيل لجميع الأخطاء الأخرى
   };
 
   try{r.start();}
@@ -1185,10 +1218,61 @@ function launchRec(){
 }
 
 function stopRec(){
+  isLocked=false;
   isAborting=true;
   shouldRec=false;isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
   setRecUI(false);
+}
+
+function lockRec(){
+  isLocked=true;
+  const btn=document.getElementById('rec-btn');
+  if(btn)btn.classList.add('locked');
+  const li=document.getElementById('lock-ic');
+  if(li){li.classList.remove('active');li.classList.add('locked');}
+  const lf=document.getElementById('lock-float');
+  if(lf)lf.classList.add('show');
+  const lbl=document.getElementById('rec-lbl');
+  if(lbl)lbl.textContent='مقفل 🔒';
+}
+
+function initRecBtn(){
+  const btn=document.getElementById('rec-btn');
+  if(!btn)return;
+  let startY=0,lockTriggered=false;
+  const THRESHOLD=55;
+
+  btn.addEventListener('touchstart',e=>{
+    if(!isRec)return;
+    startY=e.touches[0].clientY;
+    lockTriggered=false;
+    if(!isLocked){
+      const lf=document.getElementById('lock-float');
+      if(lf)lf.classList.add('show');
+    }
+  },{passive:true});
+
+  btn.addEventListener('touchmove',e=>{
+    if(!isRec||isLocked)return;
+    const dy=startY-e.touches[0].clientY;
+    const li=document.getElementById('lock-ic');
+    if(dy>25){if(li)li.classList.add('active');}
+    else{if(li)li.classList.remove('active');}
+    if(dy>=THRESHOLD&&!lockTriggered){
+      lockTriggered=true;
+      lockRec();
+    }
+  },{passive:true});
+
+  btn.addEventListener('touchend',()=>{
+    if(!isLocked){
+      const lf=document.getElementById('lock-float');
+      if(lf)lf.classList.remove('show');
+      const li=document.getElementById('lock-ic');
+      if(li)li.classList.remove('active');
+    }
+  },{passive:true});
 }
 
 function stopRecAudio(){}
@@ -1493,6 +1577,7 @@ function playClick(){}
 setGreeting();
 updatePhrase();
 renderMyTexts();
+initRecBtn();
 </script>
 </body>
 </html>
