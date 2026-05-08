@@ -1099,6 +1099,8 @@ function stopFreePlay(){
 let isAborting=false;
 let isLocked=false;
 let recAudioCtx=null;
+let micStream=null;      // نبقي الميكروفون مفتوحاً طوال الجلسة — يمنع صوت البدء/الإيقاف
+let micSourceNode=null;
 // نحتفظ بالنصوص النهائية المؤكدة في مصفوفة — كل جلسة SR مستقلة
 let finalTranscripts=[];
 
@@ -1141,13 +1143,26 @@ function toggleRecording(){
   startRec();
 }
 
-function startRec(){
+async function startRec(){
   accFinal='';
   finalTranscripts=[];
   shouldRec=true;isAborting=false;isRec=true;
   stats.sess++;saveStats();clearResult();
   setRecUI(true);
-  getRecAudioCtx();
+  // افتح الميكروفون أولاً وأبقه مفتوحاً — يمنع المتصفح من إصدار صوت عند كل إعادة تشغيل
+  if(!micStream){
+    try{
+      micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+      const ctx=getRecAudioCtx();
+      if(ctx&&micStream){
+        micSourceNode=ctx.createMediaStreamSource(micStream);
+        // وصّله بـ gain=0 حتى لا يُسمع صوت — فقط لإبقاء الميكروفون نشطاً
+        const silent=ctx.createGain();
+        silent.gain.value=0;
+        micSourceNode.connect(silent);
+      }
+    }catch(e){/* إذا فشل getUserMedia، نكمل بالطريقة العادية */}
+  }
   launchRec();
 }
 
@@ -1200,8 +1215,8 @@ function launchRec(){
       setRecUI(false);
       return;
     }
-    // أعد التشغيل تلقائياً إذا انقطع
-    setTimeout(launchRec,90);
+    // أعد التشغيل فوراً — الميكروفون لا يزال مفتوحاً فلا يصدر صوت
+    launchRec();
   };
 
   r.onerror=ev=>{
@@ -1214,7 +1229,10 @@ function launchRec(){
   };
 
   try{r.start();}
-  catch(e){if(shouldRec&&!isAborting)setTimeout(launchRec,150);}
+  catch(e){
+    // الجلسة السابقة لم تنتهِ بعد — انتظر قليلاً ثم أعد المحاولة
+    if(shouldRec&&!isAborting)setTimeout(launchRec,80);
+  }
 }
 
 function stopRec(){
@@ -1222,6 +1240,9 @@ function stopRec(){
   isAborting=true;
   shouldRec=false;isRec=false;
   if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
+  // أطلق الميكروفون الآن فقط — عند الإيقاف الفعلي من المستخدم
+  if(micSourceNode){try{micSourceNode.disconnect();}catch(e){}micSourceNode=null;}
+  if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}
   setRecUI(false);
 }
 
