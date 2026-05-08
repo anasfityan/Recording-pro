@@ -661,7 +661,7 @@ const DICT={
 
 /* ══════ STATE ══════ */
 let lang='en',idx=0,mode='normal',myLang='en';
-let isRec=false,recObj=null,accFinal='',shouldRec=false,lastFinalLen=0;
+let isRec=false,accFinal='',shouldRec=false,lastFinalLen=0;
 let isHid=false,isTTS=false,ttsRate=0.9;
 let myTexts=[],stats={sess:0,scores:[],err:{},ok:{},reps:{}};
 let wordPopTimer=null,audioCtx=null;
@@ -1095,15 +1095,109 @@ function stopFreePlay(){
   document.getElementById('free-prog').textContent='';
 }
 
-/* ══════ RECORDING — إصلاح التكرار والصوت ══════ */
+/* ══════ RECORDING — Whisper STT (لا أصوات، يعمل محلياً) ══════ */
 let isAborting=false;
 let isLocked=false;
-let recAudioCtx=null;
-let micStream=null;      // نبقي الميكروفون مفتوحاً طوال الجلسة — يمنع صوت البدء/الإيقاف
-let micSourceNode=null;
-// نحتفظ بالنصوص النهائية المؤكدة في مصفوفة — كل جلسة SR مستقلة
+let micStream=null;
 let finalTranscripts=[];
 
+// Whisper
+let whisperPipe=null;
+let whisperReady=false;
+let whisperLoading=false;
+
+// MediaRecorder
+let mediaRec=null;
+let mediaChunks=[];
+let wAudioCtx=null;
+let analyserNode=null;
+let silenceStart=null;
+let silenceIv=null;
+let chunkIv=null;
+const SILENCE_MS=1800;
+const CHUNK_MS=25000;
+
+/* ── تحميل نموذج Whisper (مرة واحدة، يُحفظ في cache المتصفح) ── */
+async function loadWhisper(onProg){
+  if(whisperReady)return true;
+  if(whisperLoading)return false;
+  whisperLoading=true;
+  try{
+    const {pipeline,env}=await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+    env.allowLocalModels=false;
+    env.useBrowserCache=true;
+    whisperPipe=await pipeline('automatic-speech-recognition','Xenova/whisper-tiny',{
+      progress_callback:d=>{
+        if((d.status==='downloading'||d.status==='progress')&&onProg)
+          onProg(Math.round(d.progress||0));
+      }
+    });
+    whisperReady=true;
+  }catch(e){whisperLoading=false;return false;}
+  whisperLoading=false;
+  return true;
+}
+
+/* ── معالجة قطعة صوتية بـ Whisper ── */
+async function runWhisper(blob){
+  if(!whisperPipe||blob.size<500)return'';
+  try{
+    const ab=await blob.arrayBuffer();
+    const ctx=new AudioContext({sampleRate:16000});
+    const buf=await ctx.decodeAudioData(ab);
+    await ctx.close();
+    const pcm=buf.getChannelData(0);
+    const langMap={en:'english',tr:'turkish',my:'english'};
+    const res=await whisperPipe(pcm,{language:langMap[lang]||'english',task:'transcribe'});
+    return(res.text||'').trim().replace(/^\[.*?\]/,'').trim();
+  }catch(e){return'';}
+}
+
+/* ── معالجة المقاطع المتراكمة وعرض النص ── */
+async function processChunks(){
+  if(!mediaChunks.length)return;
+  const snap=[...mediaChunks];
+  mediaChunks=[];
+  // اعرض مؤشر المعالجة
+  const el=document.getElementById('res-content');
+  if(el&&!accFinal)el.innerHTML='<div class="res-ph" style="color:var(--ac)">⏳ جاري التحليل...</div>';
+  const blob=new Blob(snap,{type:mediaRec?mediaRec.mimeType:'audio/webm'});
+  const text=await runWhisper(blob);
+  if(text&&shouldRec){
+    if(!finalTranscripts.includes(text))finalTranscripts.push(text);
+    accFinal=finalTranscripts.join(' ');
+    if(el){
+      el.innerHTML='<div class="res-tx" dir="ltr">"'+accFinal+'"</div>';
+      const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
+      const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
+    }
+    if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
+    if(accFinal.trim()&&mode==='pronounce')analyzePronounce(accFinal.trim());
+  }
+}
+
+/* ── شاشة تحميل النموذج ── */
+function setWhisperProgress(pct){
+  let el=document.getElementById('whisper-dl');
+  if(pct===null){if(el)el.remove();return;}
+  if(!el){
+    el=document.createElement('div');
+    el.id='whisper-dl';
+    el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999';
+    document.body.appendChild(el);
+  }
+  el.innerHTML=`<div style="background:var(--sur);border:1px solid var(--brd2);border-radius:16px;padding:1.5rem 2rem;text-align:center;min-width:240px;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+    <div style="font-size:32px;margin-bottom:8px">🎙️</div>
+    <div style="font-family:Tajawal;color:var(--tx1);font-size:14px;margin-bottom:4px">جاري تحميل نموذج التعرف على الصوت</div>
+    <div style="font-family:Tajawal;color:var(--tx3);font-size:11px;margin-bottom:12px">سيُحفظ تلقائياً — مرة واحدة فقط (~75 MB)</div>
+    <div style="background:var(--brd);border-radius:8px;height:8px;overflow:hidden">
+      <div style="background:linear-gradient(90deg,var(--ac),var(--ac2));height:100%;width:${pct}%;transition:width .4s"></div>
+    </div>
+    <div style="font-family:'JetBrains Mono';color:var(--tx2);font-size:12px;margin-top:6px">${pct}%</div>
+  </div>`;
+}
+
+/* ── واجهة زر التسجيل ── */
 function setRecUI(on){
   const btn=document.getElementById('rec-btn');
   if(btn){btn.classList.toggle('on',on);if(!on)btn.classList.remove('locked');}
@@ -1114,134 +1208,87 @@ function setRecUI(on){
   const lbl=document.getElementById('rec-lbl');
   if(on){
     if(lbl){lbl.textContent=isLocked?'مقفل 🔒':'جاري...';lbl.classList.add('on');}
-  } else {
+  }else{
     if(lbl){lbl.textContent='تسجيل';lbl.classList.remove('on');}
-    const lf=document.getElementById('lock-float');
-    if(lf)lf.classList.remove('show');
-    const li=document.getElementById('lock-ic');
-    if(li)li.classList.remove('active','locked');
+    const lf=document.getElementById('lock-float');if(lf)lf.classList.remove('show');
+    const li=document.getElementById('lock-ic');if(li)li.classList.remove('active','locked');
     isLocked=false;
   }
 }
 
-function getRecAudioCtx(){
-  if(!recAudioCtx){
-    try{recAudioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
-  }
-  if(recAudioCtx&&recAudioCtx.state==='suspended')recAudioCtx.resume();
-  return recAudioCtx;
-}
-
 function toggleRecording(){
-  const hasSR='webkitSpeechRecognition' in window||'SpeechRecognition' in window;
-  if(!hasSR){document.getElementById('no-sup').style.display='block';return;}
-  if(isRec){
-    // عند الضغط مرة ثانية وهو مقفل — أوقف التسجيل
-    stopRec();
-    return;
-  }
+  const hasMedia=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+  if(!hasMedia){document.getElementById('no-sup').style.display='block';return;}
+  if(isRec){stopRec();return;}
   startRec();
 }
 
 async function startRec(){
-  accFinal='';
-  finalTranscripts=[];
+  accFinal='';finalTranscripts=[];
   shouldRec=true;isAborting=false;isRec=true;
   stats.sess++;saveStats();clearResult();
   setRecUI(true);
-  // افتح الميكروفون أولاً وأبقه مفتوحاً — يمنع المتصفح من إصدار صوت عند كل إعادة تشغيل
-  if(!micStream){
-    try{
-      micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-      const ctx=getRecAudioCtx();
-      if(ctx&&micStream){
-        micSourceNode=ctx.createMediaStreamSource(micStream);
-        // وصّله بـ gain=0 حتى لا يُسمع صوت — فقط لإبقاء الميكروفون نشطاً
-        const silent=ctx.createGain();
-        silent.gain.value=0;
-        micSourceNode.connect(silent);
-      }
-    }catch(e){/* إذا فشل getUserMedia، نكمل بالطريقة العادية */}
+
+  // تحميل Whisper إن لم يكن جاهزاً
+  if(!whisperReady){
+    setWhisperProgress(0);
+    const ok=await loadWhisper(p=>setWhisperProgress(p));
+    setWhisperProgress(null);
+    if(!ok||!shouldRec){stopRec();return;}
   }
-  launchRec();
-}
 
-function launchRec(){
-  if(!shouldRec||isAborting)return;
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  let r;
-  try{r=new SR();}catch(e){stopRec();return;}
-  recObj=r;
-  r.lang=getLangForTTS()==='tr'?'tr-TR':'en-US';
-  r.continuous=true;   // مفتوح باستمرار مثل واتساب
-  r.interimResults=true;
-  r.maxAlternatives=1;
-
-  // نتتبع آخر index نهائي معالج لمنع التكرار
-  let lastProcessedIndex=0;
-
-  r.onresult=ev=>{
-    let interim='';
-    // معالجة النتائج الجديدة فقط
-    for(let i=ev.resultIndex;i<ev.results.length;i++){
-      if(ev.results[i].isFinal){
-        if(i>=lastProcessedIndex){
-          const t=ev.results[i][0].transcript.trim();
-          if(t&&!finalTranscripts.includes(t)){
-            finalTranscripts.push(t);
-          }
-          lastProcessedIndex=i+1;
-        }
-      } else {
-        interim+=ev.results[i][0].transcript;
-      }
-    }
-    const allFinal=finalTranscripts.join(' ');
-    const shown=(allFinal+(interim?' '+interim:'')).trim();
-    if(shown){
-      document.getElementById('res-content').innerHTML='<div class="res-tx" dir="ltr">"'+shown+'"</div>';
-      const rb=document.getElementById('res-clr-btn');if(rb)rb.style.display='flex';
-      const bc=document.getElementById('btn-clr');if(bc)bc.style.display='flex';
-    }
-    accFinal=allFinal;
-    if(accFinal.trim()&&mode!=='free')analyze(accFinal.trim());
-    const spokenSoFar=(allFinal+(interim?' '+interim:'')).trim();
-    if(spokenSoFar&&mode==='pronounce')analyzePronounce(spokenSoFar);
-  };
-
-  r.onend=()=>{
-    if(isAborting||!shouldRec){
-      isRec=false;isAborting=false;
-      setRecUI(false);
-      return;
-    }
-    // أعد التشغيل فوراً — الميكروفون لا يزال مفتوحاً فلا يصدر صوت
-    launchRec();
-  };
-
-  r.onerror=ev=>{
-    if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){
-      shouldRec=false;isRec=false;isAborting=false;
-      setRecUI(false);
-      document.getElementById('no-sup').style.display='block';
-    }
-    // onend سيتكفّل بإعادة التشغيل لجميع الأخطاء الأخرى
-  };
-
-  try{r.start();}
-  catch(e){
-    // الجلسة السابقة لم تنتهِ بعد — انتظر قليلاً ثم أعد المحاولة
-    if(shouldRec&&!isAborting)setTimeout(launchRec,80);
+  // فتح الميكروفون مرة واحدة طوال الجلسة
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+  }catch(e){
+    document.getElementById('no-sup').style.display='block';
+    stopRec();return;
   }
+
+  // AnalyserNode لكشف الصمت
+  wAudioCtx=new AudioContext();
+  const src=wAudioCtx.createMediaStreamSource(micStream);
+  analyserNode=wAudioCtx.createAnalyser();
+  analyserNode.fftSize=2048;
+  src.connect(analyserNode);
+
+  // اختيار أفضل تنسيق صوتي متاح
+  const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'].find(t=>{
+    try{return MediaRecorder.isTypeSupported(t);}catch{return false;}
+  })||'';
+  mediaRec=new MediaRecorder(micStream,mime?{mimeType:mime}:{});
+  mediaChunks=[];
+  mediaRec.ondataavailable=e=>{if(e.data&&e.data.size>0)mediaChunks.push(e.data);};
+  mediaRec.start(500);
+
+  // كشف الصمت → معالجة
+  silenceStart=null;
+  silenceIv=setInterval(async()=>{
+    if(!shouldRec||!analyserNode)return;
+    const d=new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(d);
+    const rms=Math.sqrt(d.reduce((s,v)=>s+v*v,0)/d.length)/255;
+    if(rms<0.025){
+      if(!silenceStart)silenceStart=Date.now();
+      else if(Date.now()-silenceStart>SILENCE_MS){silenceStart=null;await processChunks();}
+    }else{silenceStart=null;}
+  },200);
+
+  // حد أقصى كل 25 ثانية
+  chunkIv=setInterval(()=>{if(shouldRec&&mediaChunks.length)processChunks();},CHUNK_MS);
 }
 
 function stopRec(){
-  isLocked=false;
-  isAborting=true;
-  shouldRec=false;isRec=false;
-  if(recObj){try{recObj.abort();}catch(e){}recObj=null;}
-  // أطلق الميكروفون الآن فقط — عند الإيقاف الفعلي من المستخدم
-  if(micSourceNode){try{micSourceNode.disconnect();}catch(e){}micSourceNode=null;}
+  isLocked=false;isAborting=true;shouldRec=false;isRec=false;
+  clearInterval(silenceIv);silenceIv=null;
+  clearInterval(chunkIv);chunkIv=null;
+  if(mediaRec&&mediaRec.state!=='inactive'){
+    mediaRec.onstop=()=>{if(mediaChunks.length)processChunks();};
+    try{mediaRec.stop();}catch(e){}
+  }
+  mediaRec=null;
+  if(analyserNode){try{analyserNode.disconnect();}catch(e){}analyserNode=null;}
+  if(wAudioCtx){try{wAudioCtx.close();}catch(e){}wAudioCtx=null;}
   if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}
   setRecUI(false);
 }
